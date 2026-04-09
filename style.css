@@ -847,3 +847,8 @@
     white-space: nowrap;
 }
 
+.lc-sw-ovi-block { background: rgba(180,160,80,0.04); border-left-color: rgba(180,160,80,0.35); }
+.lc-sw-ovi-block .lc-sw-block-title { color: #c0b060; }
+.lc-sw-mini-fill.ovi { background: linear-gradient(90deg, #c0b060, #e0c040); }
+
+
