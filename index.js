@@ -1,7 +1,7 @@
 // ============================================================
-// LifeCycle Extension v0.4.0 — index.js (Full Rewrite)
-// Auto-detect sex scenes, auto-dice, auto-parse characters,
-// collapsible panel, status widget after every message
+// LifeCycle Extension v0.5.0 — index.js
+// Full chat history parsing, contextual widget,
+// heat/rut cycle tracking, auto-everything
 // ============================================================
 
 import { extension_settings, getContext } from "../../../extensions.js";
@@ -22,14 +22,8 @@ const defaultSettings = {
     autoDetectIntimacy: true,
     autoRollOnSex: true,
     showStatusWidget: true,
-    modules: {
-        cycle: true,
-        pregnancy: true,
-        labor: true,
-        baby: true,
-        intimacy: true,
-        auOverlay: false,
-    },
+    parseFullChat: true,
+    modules: { cycle: true, pregnancy: true, labor: true, baby: true, intimacy: true, auOverlay: false },
     worldDate: { year: 2025, month: 1, day: 1, hour: 12, minute: 0, frozen: false },
     autoTimeProgress: true,
     timeParserSensitivity: "medium",
@@ -40,33 +34,22 @@ const defaultSettings = {
     auPreset: "realism",
     auSettings: {
         omegaverse: {
-            heatCycleLength: 30,
-            heatDuration: 5,
-            heatFertilityBonus: 0.35,
-            rutDuration: 4,
-            knotEnabled: true,
-            knotDurationMin: 15,
-            bondingEnabled: true,
-            bondType: "bite_mark",
-            suppressantsAvailable: true,
-            maleOmegaPregnancy: true,
-            pregnancyWeeks: 36,
+            heatCycleLength: 30, heatDuration: 5, heatFertilityBonus: 0.35,
+            rutCycleLength: 35, rutDuration: 4,
+            knotEnabled: true, knotDurationMin: 15,
+            bondingEnabled: true, bondType: "bite_mark",
+            suppressantsAvailable: true, maleOmegaPregnancy: true, pregnancyWeeks: 36,
         },
         fantasy: {
             pregnancyByRace: { human: 40, elf: 60, dwarf: 35, orc: 32, halfling: 38 },
-            nonHumanFeatures: true,
-            magicalComplications: false,
+            nonHumanFeatures: true, magicalComplications: false,
         },
-        scifi: {
-            artificialWomb: false,
-            geneticModification: false,
-            acceleratedGrowth: false,
-        },
+        scifi: { artificialWomb: false, geneticModification: false, acceleratedGrowth: false },
     },
     characters: {},
     diceLog: [],
     intimacyLog: [],
-    lastWidgetHTML: "",
+    _chatParsed: false,
 };
 
 // ==========================================
@@ -74,21 +57,18 @@ const defaultSettings = {
 // ==========================================
 
 function deepMerge(target, source) {
-    const result = { ...target };
-    for (const key of Object.keys(source)) {
-        if (source[key] && typeof source[key] === "object" && !Array.isArray(source[key]) &&
-            target[key] && typeof target[key] === "object" && !Array.isArray(target[key])) {
-            result[key] = deepMerge(target[key], source[key]);
-        } else {
-            result[key] = source[key];
-        }
+    const r = { ...target };
+    for (const k of Object.keys(source)) {
+        if (source[k] && typeof source[k] === "object" && !Array.isArray(source[k]) && target[k] && typeof target[k] === "object" && !Array.isArray(target[k])) {
+            r[k] = deepMerge(target[k], source[k]);
+        } else { r[k] = source[k]; }
     }
-    return result;
+    return r;
 }
 
-function formatDate(d) {
-    const pad = n => String(n).padStart(2, "0");
-    return `${d.year}/${pad(d.month)}/${pad(d.day)} ${pad(d.hour)}:${pad(d.minute)}`;
+function fmt(d) {
+    const p = n => String(n).padStart(2, "0");
+    return `${d.year}/${p(d.month)}/${p(d.day)} ${p(d.hour)}:${p(d.minute)}`;
 }
 
 function addDays(d, days) {
@@ -98,308 +78,253 @@ function addDays(d, days) {
 }
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
-function rollDice(sides) { return Math.floor(Math.random() * (sides || 100)) + 1; }
+function dice(n) { return Math.floor(Math.random() * (n || 100)) + 1; }
 
 // ==========================================
-// CHARACTER INFO PARSER (auto-extract from card)
+// CHAT HISTORY PARSER — reads ENTIRE chat
+// ==========================================
+
+class ChatHistoryParser {
+    static CHILD_PATTERNS = [
+        /(?:родил[аи]?|появил(?:ся|ась)|born|gave\s*birth)\s*(?:to\s*)?(?:(?:мальчик|девочк|сын|дочь|boy|girl|son|daughter)[аеу]?\s*)?(?:по\s*имени\s*|named?\s*|назвал[аи]?\s*)["«]?(\w[\w\s]{1,20})["»]?/gi,
+        /(?:малыш|ребён(?:ок|ка)|baby|child|infant)\s+(?:по\s*имени\s*|named?\s*)["«]?(\w[\w\s]{1,20})["»]?/gi,
+        /(?:их|наш[аеу]?|her|his|their)\s+(?:сын|дочь|son|daughter|ребён\w+|малыш\w*|baby)\s+["«]?(\w{2,20})["»]?/gi,
+    ];
+
+    static CHILD_SEX_PATTERNS = {
+        M: /(?:мальчик|сын|boy|son|he)\b/i,
+        F: /(?:девочк|дочь|дочер|girl|daughter|she)\b/i,
+    };
+
+    static PREGNANCY_PATTERNS = [
+        /(?:беременн|pregnant|ожида(?:ет|ла|ть)\s*ребёнк|expecting|carrying\s*(?:a\s*)?(?:child|baby))/i,
+        /(?:тест\s*(?:на\s*беременность|показал)\s*(?:положительн|две\s*полоск))/i,
+        /(?:pregnancy\s*test\s*(?:positive|two\s*lines))/i,
+        /(?:токсикоз|утренняя\s*тошнота|morning\s*sickness)/i,
+        /(?:живот\s*(?:рос|округл|заметн)|(?:belly|bump)\s*(?:grow|showing|visible))/i,
+        /(?:(\d{1,2})\s*(?:недел[ьяию]|week)\s*(?:беременност|pregnant|of\s*pregnancy))/i,
+    ];
+
+    static SECONDARY_SEX_CONTEXT = {
+        alpha: /\b(альфа|alpha)\b/i,
+        beta: /\b(бета|beta)\b/i,
+        omega: /\b(омега|omega)\b/i,
+    };
+
+    static HEAT_PATTERNS = [
+        /(?:течк[аеуи]|heat|in\s*heat|estrus)/i,
+        /(?:начал(?:ась|ся)\s*течка|heat\s*(?:started|began|hit))/i,
+        /(?:запах\s*(?:течки|омеги)|scent\s*of\s*(?:heat|omega))/i,
+        /(?:слик|slick|самосмазк|self[- ]?lubricat)/i,
+    ];
+
+    static RUT_PATTERNS = [
+        /(?:гон[а-яё]*|rut(?:ting)?|in\s*rut)/i,
+        /(?:начал(?:ся)?\s*гон|rut\s*(?:started|began|hit))/i,
+        /(?:альфа.*(?:агрессивн|possessiv|доминант))/i,
+    ];
+
+    static BIO_SEX_CONTEXT = {
+        F: /\b(она|её|ей|she|her|hers|девушк|женщин)\b/i,
+        M: /\b(он|его|ему|he|him|his|парень|мужчин)\b/i,
+    };
+
+    static parseFullChat(chatMessages, characters) {
+        if (!chatMessages || chatMessages.length === 0) return {};
+        const results = {};
+        const charNames = Object.keys(characters);
+        const fullText = chatMessages.map(m => m.mes || "").join("\n");
+
+        for (const name of charNames) {
+            const info = {};
+
+            // Find text chunks relevant to this character
+            const relevant = [];
+            for (const msg of chatMessages) {
+                const t = msg.mes || "";
+                if (t.toLowerCase().includes(name.toLowerCase())) relevant.push(t);
+            }
+            const charText = relevant.join("\n");
+
+            // Secondary sex from context
+            for (const [sec, pat] of Object.entries(this.SECONDARY_SEX_CONTEXT)) {
+                // Check if pattern is near character name
+                const nameRe = new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "[\\s\\-]*" + pat.source, "i");
+                const nameRe2 = new RegExp(pat.source + "[\\s\\-]*" + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "i");
+                if (nameRe.test(fullText) || nameRe2.test(fullText)) {
+                    info.secondarySex = sec;
+                    break;
+                }
+            }
+            // Also check just in character's relevant text
+            if (!info.secondarySex) {
+                for (const [sec, pat] of Object.entries(this.SECONDARY_SEX_CONTEXT)) {
+                    if (pat.test(charText)) { info.secondarySex = sec; break; }
+                }
+            }
+
+            // Bio sex from context
+            if (charText.length > 0) {
+                let fCount = 0, mCount = 0;
+                const fMatches = charText.match(/\b(она|её|ей|she|her)\b/gi);
+                const mMatches = charText.match(/\b(он|его|ему|he|him)\b/gi);
+                if (fMatches) fCount = fMatches.length;
+                if (mMatches) mCount = mMatches.length;
+                if (fCount > mCount * 2) info.bioSex = "F";
+                else if (mCount > fCount * 2) info.bioSex = "M";
+            }
+
+            // Pregnancy detection
+            for (const pat of this.PREGNANCY_PATTERNS) {
+                if (pat.test(charText)) {
+                    info.isPregnant = true;
+                    // Try to get week number
+                    const weekMatch = charText.match(/(\d{1,2})\s*(?:недел[ьяию]|week)/i);
+                    if (weekMatch) info.pregnancyWeek = parseInt(weekMatch[1]);
+                    break;
+                }
+            }
+
+            // Heat detection
+            for (const pat of this.HEAT_PATTERNS) {
+                if (pat.test(charText)) { info.inHeat = true; break; }
+            }
+
+            // Rut detection
+            for (const pat of this.RUT_PATTERNS) {
+                if (pat.test(charText)) { info.inRut = true; break; }
+            }
+
+            // Children detection
+            info.children = [];
+            for (const pat of this.CHILD_PATTERNS) {
+                let m;
+                const re = new RegExp(pat.source, pat.flags);
+                while ((m = re.exec(fullText)) !== null) {
+                    const childName = m[1]?.trim();
+                    if (childName && childName.length >= 2 && childName.length <= 20 && !charNames.includes(childName)) {
+                        // Determine sex from surrounding context
+                        const surroundStart = Math.max(0, m.index - 100);
+                        const surroundEnd = Math.min(fullText.length, m.index + m[0].length + 100);
+                        const surrounding = fullText.substring(surroundStart, surroundEnd);
+                        let childSex = null;
+                        if (this.CHILD_SEX_PATTERNS.M.test(surrounding)) childSex = "M";
+                        else if (this.CHILD_SEX_PATTERNS.F.test(surrounding)) childSex = "F";
+
+                        if (!info.children.find(c => c.name === childName)) {
+                            info.children.push({ name: childName, sex: childSex });
+                        }
+                    }
+                }
+            }
+
+            if (Object.keys(info).length > 0) results[name] = info;
+        }
+
+        return results;
+    }
+}
+
+// ==========================================
+// CHAR INFO PARSER (from card description)
 // ==========================================
 
 class CharInfoParser {
-    static SEX_PATTERNS = {
-        F: /\b(female|woman|girl|девушка|женщина|девочка|she\/her|фем|самка|женский\s*пол)\b/i,
-        M: /\b(male|man|boy|мужчина|парень|мальчик|he\/him|маск|самец|мужской\s*пол)\b/i,
-    };
+    static SEX = { F: /\b(female|woman|girl|девушка|женщина|she\/her|фем|самка)\b/i, M: /\b(male|man|boy|мужчина|парень|he\/him|маск|самец)\b/i };
+    static SEC_SEX = { alpha: /\b(alpha|альфа)\b/i, beta: /\b(beta|бета)\b/i, omega: /\b(omega|омега)\b/i };
+    static RACE = { human:/\b(human|человек)\b/i, elf:/\b(elf|эльф)\b/i, dwarf:/\b(dwarf|дварф|гном)\b/i, orc:/\b(orc|орк)\b/i, demon:/\b(demon|демон)\b/i, vampire:/\b(vampire|вампир)\b/i, werewolf:/\b(werewolf|оборотень)\b/i, neko:/\b(neko|неко)\b/i, kitsune:/\b(kitsune|кицунэ)\b/i };
+    static EYE = /\b(голуб\S*|сини\S*|сер\S*|зелён\S*|зелен\S*|кар\S*|чёрн\S*|черн\S*|янтарн\S*|золот\S*|фиолетов\S*|красн\S*|гетерохром\S*|blue|green|brown|hazel|grey|gray|amber|gold|red|violet|purple)\s*(?:eye|eyes|глаз)/i;
+    static HAIR = /\b(блонд\S*|русы\S*|рыж\S*|чёрн\S*|черн\S*|бел\S*|серебрист\S*|розов\S*|голуб\S*|фиолетов\S*|каштанов\S*|платинов\S*|медн\S*|золотист\S*|пшеничн\S*|blonde?|brunette?|redhead|black|white|silver|pink|blue|green|purple)\s*(?:hair|волос)/i;
 
-    static SECONDARY_SEX_PATTERNS = {
-        alpha: /\b(alpha|альфа)\b/i,
-        beta: /\b(beta|бета)\b/i,
-        omega: /\b(omega|омега)\b/i,
-    };
-
-    static RACE_PATTERNS = {
-        human: /\b(human|человек|людской)\b/i,
-        elf: /\b(elf|elven|эльф|эльфийк[аи])\b/i,
-        dwarf: /\b(dwarf|дварф|гном)\b/i,
-        orc: /\b(orc|орк)\b/i,
-        halfling: /\b(halfling|полурослик|хоббит)\b/i,
-        demon: /\b(demon|демон)\b/i,
-        vampire: /\b(vampire|вампир)\b/i,
-        werewolf: /\b(werewolf|оборотень|ликантроп)\b/i,
-        dragon: /\b(dragon|дракон)\b/i,
-        neko: /\b(neko|неко|кошко(девочка|мальчик|человек))\b/i,
-        kitsune: /\b(kitsune|кицунэ|лис(ица|а)?)\b/i,
-    };
-
-    static EYE_PATTERN = /(?:(?:eye|eyes|глаз[аы]?|цвет\s*глаз)\s*[:\-=]?\s*)([\wа-яё\s\-]+?)(?:[,.\n;|]|$)/i;
-    static EYE_COLOR_PATTERN = /\b((?:голуб|синь|сер|зелён|зелен|карь|кари|чёрн|черн|жёлт|желт|красн|фиолетов|янтарн|золот|ореховь|бирюзов|лавандов|гетерохром)\S*|blue|green|brown|hazel|grey|gray|amber|gold|red|violet|purple|heterochrom\S*)\s*(?:eye|eyes|глаз)/i;
-    static HAIR_PATTERN = /(?:(?:hair|волос[аы]?|цвет\s*волос)\s*[:\-=]?\s*)([\wа-яё\s\-]+?)(?:[,.\n;|]|$)/i;
-    static HAIR_COLOR_PATTERN = /\b((?:блонд|русь|русы|рыж|чёрн|черн|тёмн|темн|белый|бел|серебрист|розов|голуб|зелён|зелен|фиолетов|пепельн|каштанов|платинов|медн|золотист|лиловь|пшеничн)\S*|blonde?|brunette?|redhead|black|white|silver|pink|blue|green|purple|ash|chestnut|platinum|copper|golden)\s*(?:hair|волос)/i;
-
-    static parseFromText(text) {
-        if (!text) return {};
-        const info = {};
-
-        // Bio sex
-        for (const [sex, pat] of Object.entries(this.SEX_PATTERNS)) {
-            if (pat.test(text)) { info.bioSex = sex; break; }
-        }
-
-        // Secondary sex (omegaverse)
-        for (const [sec, pat] of Object.entries(this.SECONDARY_SEX_PATTERNS)) {
-            if (pat.test(text)) { info.secondarySex = sec; break; }
-        }
-
-        // Race
-        for (const [race, pat] of Object.entries(this.RACE_PATTERNS)) {
-            if (pat.test(text)) { info.race = race; break; }
-        }
-
-        // Eye color
-        let eyeMatch = text.match(this.EYE_COLOR_PATTERN);
-        if (eyeMatch) info.eyeColor = eyeMatch[1].trim();
-        else {
-            eyeMatch = text.match(this.EYE_PATTERN);
-            if (eyeMatch) info.eyeColor = eyeMatch[1].trim().substring(0, 30);
-        }
-
-        // Hair color
-        let hairMatch = text.match(this.HAIR_COLOR_PATTERN);
-        if (hairMatch) info.hairColor = hairMatch[1].trim();
-        else {
-            hairMatch = text.match(this.HAIR_PATTERN);
-            if (hairMatch) info.hairColor = hairMatch[1].trim().substring(0, 30);
-        }
-
-        return info;
-    }
-
-    static parseCharacter(charObj) {
+    static parse(charObj) {
         if (!charObj) return {};
-        const texts = [
-            charObj.description || "",
-            charObj.personality || "",
-            charObj.scenario || "",
-            charObj.first_mes || "",
-            (charObj.data?.description) || "",
-            (charObj.data?.personality) || "",
-        ].join("\n");
-        return this.parseFromText(texts);
+        const t = [charObj.description, charObj.personality, charObj.scenario, charObj.first_mes, charObj.data?.description, charObj.data?.personality, charObj.data?.extensions?.depth_prompt?.prompt].filter(Boolean).join("\n");
+        const info = {};
+        for (const [s, p] of Object.entries(this.SEX)) { if (p.test(t)) { info.bioSex = s; break; } }
+        for (const [s, p] of Object.entries(this.SEC_SEX)) { if (p.test(t)) { info.secondarySex = s; break; } }
+        for (const [r, p] of Object.entries(this.RACE)) { if (p.test(t)) { info.race = r; break; } }
+        let m = t.match(this.EYE); if (m) info.eyeColor = m[1].trim();
+        m = t.match(this.HAIR); if (m) info.hairColor = m[1].trim();
+        return info;
     }
 }
 
 // ==========================================
-// INTIMACY AUTO-DETECTOR (parses messages for sex scenes)
+// INTIMACY AUTO-DETECTOR
 // ==========================================
 
 class IntimacyDetector {
-    static SEX_KEYWORDS_RU = [
-        /вошё?л\s*(в\s*неё|внутрь|в\s*него|глубже)/i,
-        /проник\s*(в\s*неё|внутрь|в\s*него)/i,
-        /вставил/i,
-        /трахал|трахнул|трахает|ебал|ебёт|выебал/i,
-        /кончил\s*(внутрь|в\s*неё|в\s*него|наружу|на\s*живот|на\s*лицо|на\s*спину)/i,
-        /сперма|семя\s*(?:внутри|хлынул|наполнил)/i,
-        /кончила|оргазм/i,
-        /член\s*(?:вошёл|скольз|внутри|погруж|двигал)/i,
-        /насадил(?:а|ась)?/i,
-        /толчки?\s*(?:бёдер|бедр|внутри|глубок)/i,
-        /фрикци[ия]/i,
-        /вагинальн|анальн/i,
-        /без\s*(?:преза?ерватива|защиты|резинки)/i,
-        /внутрь\s*(?:неё|него|меня)/i,
-        /наполнил\s*(?:её|его|спермой)/i,
-        /кнот|узел\s*(?:набух|вошёл|внутри|раздул|застрял)/i,
-        /сцеп(?:ка|ились|лены)/i,
-    ];
+    static SEX_RU = [/вошё?л\s*(в\s*неё|внутрь|в\s*него)/i,/проник/i,/трахал|трахнул|ебал|ебёт|выебал/i,/кончил\s*(внутрь|в\s*неё|в\s*него|наружу|на)/i,/член\s*(?:вошёл|внутри|двигал)/i,/фрикци/i,/без\s*(?:презерватива|защиты|резинки)/i,/наполнил\s*(?:её|его|спермой)/i,/узел\s*(?:набух|вошёл|внутри|раздул|застрял)/i,/сцеп(?:ка|ились)/i];
+    static SEX_EN = [/(?:thrust|pushed|slid)\s*(?:inside|into|deeper)/i,/penetrat/i,/fuck(?:ed|ing)/i,/cum(?:ming|med)?\s*(?:inside|in(?:to)?|deep)/i,/came\s*inside/i,/raw|bareback|without\s*condom/i,/bred|breed|creampie/i,/knot(?:ted|ting)?\s*(?:inside|swell|lock|stuck)/i];
+    static CONTRA = [/презерватив|кондом|резинк/i,/condom/i,/надел\s*(?:защиту|резинку|презерватив)/i];
+    static NO_CONTRA = [/без\s*(?:презерватива|защиты|резинки)/i,/raw|bareback|without\s*(?:a\s*)?condom/i,/снял\s*презерватив/i];
+    static EJAC_IN = [/кончил\s*(?:внутрь|в\s*неё|в\s*него|глубоко)/i,/наполнил/i,/cum(?:ming|med)?\s*(?:inside|in(?:to)?|deep)/i,/creampie/i,/узел.*внутри|knot.*inside/i];
+    static EJAC_OUT = [/кончил\s*(?:наружу|на\s*живот|на\s*лицо|снаружи)/i,/pull(?:ed)?\s*out/i];
+    static ANAL = [/анал/i,/в\s*(?:задн|попу|попку|анус)/i,/anal/i];
+    static ORAL = [/минет|отсос|куннилингус/i,/blowjob|oral|fellatio/i];
 
-    static SEX_KEYWORDS_EN = [
-        /(?:thrust|pushed|slid)\s*(?:inside|into|deeper|in)/i,
-        /penetrat/i,
-        /fuck(?:ed|ing|s)/i,
-        /cum(?:ming|med|s)?\s*(?:inside|in(?:to)?|deep)/i,
-        /came\s*(?:inside|in(?:to)?)/i,
-        /sperm|semen|seed\s*(?:inside|fill)/i,
-        /orgasm/i,
-        /cock\s*(?:enter|inside|slid|push|buried|throb)/i,
-        /rode\s*(?:him|her|them)/i,
-        /raw|bareback|without\s*(?:a\s*)?(?:condom|protection)/i,
-        /bred|breed|impregnate|creampie/i,
-        /fill(?:ed|ing)?\s*(?:her|him|them)\s*(?:up|with|womb)/i,
-        /knot(?:ted|ting|s)?\s*(?:inside|swell|lock|stuck|caught)/i,
-    ];
+    static detect(text, characters) {
+        if (!text) return null;
+        let score = 0;
+        for (const p of [...this.SEX_RU, ...this.SEX_EN]) { if (p.test(text)) score++; }
+        if (score < 2) return null;
 
-    static CONTRACEPTION_KEYWORDS = [
-        /презерватив|кондом|резинк[аеу]/i,
-        /condom/i,
-        /надел\s*(?:защиту|резинку|презерватив)/i,
-        /put\s*(?:on|a)\s*condom/i,
-        /wrapped/i,
-    ];
+        let type = "vaginal";
+        for (const p of this.ANAL) { if (p.test(text)) { type = "anal"; break; } }
+        for (const p of this.ORAL) { if (p.test(text)) { type = "oral"; break; } }
 
-    static NO_CONTRACEPTION_KEYWORDS = [
-        /без\s*(?:преза?ерватива|защиты|резинки|кондома)/i,
-        /(?:raw|bareback|without\s*(?:a\s*)?(?:condom|protection))/i,
-        /сорвал\s*презерватив|снял\s*презерватив/i,
-        /(?:took|pulled|ripped)\s*(?:off|away)\s*(?:the\s*)?condom/i,
-        /не\s*(?:надел|использовал)\s*(?:презерватив|защиту)/i,
-    ];
+        let contra = false, noCon = false;
+        for (const p of this.CONTRA) { if (p.test(text)) { contra = true; break; } }
+        for (const p of this.NO_CONTRA) { if (p.test(text)) { noCon = true; break; } }
 
-    static EJACULATION_INSIDE = [
-        /кончил\s*(?:внутрь|в\s*неё|в\s*него|глубоко)/i,
-        /наполнил\s*(?:её|его|спермой|семенем)/i,
-        /сперма\s*(?:хлынула?|заполнила?|внутри)/i,
-        /cum(?:ming|med)?\s*(?:inside|in(?:to)?|deep)/i,
-        /came\s*(?:inside|in(?:to)?|deep)/i,
-        /fill(?:ed|ing)?\s*(?:her|him|them|womb)/i,
-        /bred|breed|creampie/i,
-        /seed\s*(?:fill|flood|pour|spill|deep)/i,
-        /узел\s*(?:внутри|застрял|набух|раздул)/i,
-        /knot(?:ted|ting)?\s*(?:inside|lock|caught|stuck)/i,
-    ];
+        let ejac = "unknown";
+        for (const p of this.EJAC_IN) { if (p.test(text)) { ejac = "inside"; break; } }
+        if (ejac === "unknown") for (const p of this.EJAC_OUT) { if (p.test(text)) { ejac = "outside"; break; } }
 
-    static EJACULATION_OUTSIDE = [
-        /кончил\s*(?:наружу|на\s*живот|на\s*лицо|на\s*спину|на\s*грудь|снаружи)/i,
-        /вытащил\s*(?:и\s*кончил|перед|в\s*последний)/i,
-        /cum(?:ming|med)?\s*(?:on|outside|over|across)/i,
-        /pull(?:ed|ing)?\s*out/i,
-    ];
-
-    static ANAL_KEYWORDS = [
-        /анал(?:ьн)?/i,
-        /в\s*(?:задн(?:ий|юю)|попу|попку|анус)/i,
-        /anal/i,
-        /(?:ass|anus|backdoor|rear)/i,
-    ];
-
-    static ORAL_KEYWORDS = [
-        /(?:отсос|минет|куннилингус|фелляци)/i,
-        /взял[аи]?\s*в\s*рот/i,
-        /(?:blowjob|oral|fellatio|cunnilingus)/i,
-        /(?:suck(?:ed|ing)?)\s*(?:his|her|cock|dick|clit)/i,
-    ];
-
-    static detect(message, characters) {
-        if (!message) return null;
-        const text = message;
-
-        // Check if sex scene
-        const allSexPatterns = [...this.SEX_KEYWORDS_RU, ...this.SEX_KEYWORDS_EN];
-        let sexScore = 0;
-        for (const pat of allSexPatterns) {
-            if (pat.test(text)) sexScore++;
+        const parts = [];
+        const names = Object.keys(characters);
+        for (const n of names) {
+            if (text.toLowerCase().includes(n.toLowerCase()) || characters[n]._isUser) parts.push(n);
         }
+        if (parts.length < 2 && names.length >= 2) { for (const n of names) { if (!parts.includes(n)) parts.push(n); if (parts.length >= 2) break; } }
 
-        if (sexScore < 2) return null; // Need at least 2 matches to be confident
-
-        // Determine act type
-        let actType = "vaginal";
-        for (const pat of this.ANAL_KEYWORDS) {
-            if (pat.test(text)) { actType = "anal"; break; }
-        }
-        for (const pat of this.ORAL_KEYWORDS) {
-            if (pat.test(text)) { actType = "oral"; break; }
-        }
-
-        // Determine contraception
-        let hasContraception = false;
-        let noContraception = false;
-        for (const pat of this.CONTRACEPTION_KEYWORDS) {
-            if (pat.test(text)) { hasContraception = true; break; }
-        }
-        for (const pat of this.NO_CONTRACEPTION_KEYWORDS) {
-            if (pat.test(text)) { noContraception = true; break; }
-        }
-
-        // Determine ejaculation
-        let ejaculation = "unknown";
-        for (const pat of this.EJACULATION_INSIDE) {
-            if (pat.test(text)) { ejaculation = "inside"; break; }
-        }
-        if (ejaculation === "unknown") {
-            for (const pat of this.EJACULATION_OUTSIDE) {
-                if (pat.test(text)) { ejaculation = "outside"; break; }
-            }
-        }
-
-        // Determine participants from known character names
-        const participants = [];
-        const charNames = Object.keys(characters);
-        for (const name of charNames) {
-            if (text.toLowerCase().includes(name.toLowerCase()) || characters[name]._isUser) {
-                participants.push(name);
-            }
-        }
-
-        // If we can't determine participants, use all active chars
-        if (participants.length < 2 && charNames.length >= 2) {
-            for (const name of charNames) {
-                if (!participants.includes(name)) participants.push(name);
-                if (participants.length >= 2) break;
-            }
-        }
-
-        // Determine target (who can get pregnant)
         let target = null;
-        for (const name of participants) {
-            const p = characters[name];
-            if (!p) continue;
-            const s = extension_settings[extensionName];
-            if (p.bioSex === "F") { target = name; break; }
-            if (s.modules.auOverlay && s.auPreset === "omegaverse" &&
-                p.bioSex === "M" && p.secondarySex === "omega" &&
-                s.auSettings.omegaverse.maleOmegaPregnancy) {
-                target = name;
-                break;
-            }
+        const s = extension_settings[extensionName];
+        for (const n of parts) {
+            const p = characters[n]; if (!p) continue;
+            if (p.bioSex === "F") { target = n; break; }
+            if (s.modules.auOverlay && s.auPreset === "omegaverse" && p.secondarySex === "omega" && s.auSettings.omegaverse.maleOmegaPregnancy) { target = n; break; }
         }
 
-        return {
-            detected: true,
-            sexScore,
-            actType,
-            hasContraception: hasContraception && !noContraception,
-            noContraception,
-            ejaculation,
-            participants,
-            target,
-        };
+        return { detected: true, score, type, contra: contra && !noCon, noCon, ejac, parts, target };
     }
 }
 
 // ==========================================
-// CHARACTER SYNC
+// CHARACTER SYNC + FULL CHAT PARSE
 // ==========================================
 
-function getActiveCharacters() {
-    const ctx = getContext();
-    const chars = [];
-    if (!ctx) return chars;
-
+function getActiveChars() {
+    const ctx = getContext(); const chars = []; if (!ctx) return chars;
     if (ctx.characterId !== undefined && ctx.characters) {
         const c = ctx.characters[ctx.characterId];
-        if (c) chars.push({ name: c.name, avatar: c.avatar, isUser: false, charObj: c });
+        if (c) chars.push({ name: c.name, avatar: c.avatar, isUser: false, obj: c });
     }
-
     if (ctx.groups && ctx.groupId) {
-        const group = ctx.groups.find(g => g.id === ctx.groupId);
-        if (group && group.members) {
-            for (const av of group.members) {
-                const c = ctx.characters.find(ch => ch.avatar === av);
-                if (c && !chars.find(x => x.name === c.name)) {
-                    chars.push({ name: c.name, avatar: c.avatar, isUser: false, charObj: c });
-                }
-            }
+        const g = ctx.groups.find(x => x.id === ctx.groupId);
+        if (g?.members) for (const av of g.members) {
+            const c = ctx.characters.find(x => x.avatar === av);
+            if (c && !chars.find(x => x.name === c.name)) chars.push({ name: c.name, avatar: c.avatar, isUser: false, obj: c });
         }
     }
-
-    if (ctx.name1) chars.push({ name: ctx.name1, avatar: null, isUser: true, charObj: null });
+    if (ctx.name1) chars.push({ name: ctx.name1, avatar: null, isUser: true, obj: null });
     return chars;
 }
 
-function syncCharacters() {
+function syncChars() {
     const s = extension_settings[extensionName];
     if (!s.autoSyncCharacters) return;
-    const active = getActiveCharacters();
+    const active = getActiveChars();
     let changed = false;
 
     for (const c of active) {
@@ -407,53 +332,87 @@ function syncCharacters() {
             s.characters[c.name] = makeProfile(c.name, c.isUser);
             changed = true;
         }
-
-        // Auto-parse character info from card
-        if (s.autoParseCharInfo && c.charObj && !c.isUser) {
-            const parsed = CharInfoParser.parseCharacter(c.charObj);
+        // Parse from card
+        if (s.autoParseCharInfo && c.obj && !c.isUser) {
+            const parsed = CharInfoParser.parse(c.obj);
             const p = s.characters[c.name];
-            if (parsed.bioSex && !p._manualBioSex) { p.bioSex = parsed.bioSex; changed = true; }
-            if (parsed.secondarySex && !p._manualSecSex) { p.secondarySex = parsed.secondarySex; changed = true; }
-            if (parsed.race && !p._manualRace) { p.race = parsed.race; changed = true; }
-            if (parsed.eyeColor && !p._manualEyes) { p.eyeColor = parsed.eyeColor; changed = true; }
-            if (parsed.hairColor && !p._manualHair) { p.hairColor = parsed.hairColor; changed = true; }
+            if (parsed.bioSex && !p._mBio) { p.bioSex = parsed.bioSex; changed = true; }
+            if (parsed.secondarySex && !p._mSec) { p.secondarySex = parsed.secondarySex; changed = true; }
+            if (parsed.race && !p._mRace) { p.race = parsed.race; changed = true; }
+            if (parsed.eyeColor && !p._mEyes) { p.eyeColor = parsed.eyeColor; changed = true; }
+            if (parsed.hairColor && !p._mHair) { p.hairColor = parsed.hairColor; changed = true; }
         }
     }
+
+    // Parse full chat history
+    if (s.parseFullChat) {
+        const ctx = getContext();
+        if (ctx?.chat && ctx.chat.length > 0) {
+            const chatData = ChatHistoryParser.parseFullChat(ctx.chat, s.characters);
+
+            for (const [name, info] of Object.entries(chatData)) {
+                const p = s.characters[name];
+                if (!p) continue;
+
+                if (info.secondarySex && !p._mSec) { p.secondarySex = info.secondarySex; changed = true; }
+                if (info.bioSex && !p._mBio) { p.bioSex = info.bioSex; changed = true; }
+
+                if (info.isPregnant && !p.pregnancy?.active && !p._mPreg) {
+                    p.pregnancy.active = true;
+                    p.pregnancy.week = info.pregnancyWeek || 4;
+                    p.pregnancy.day = 0;
+                    if (p.cycle) p.cycle.enabled = false;
+                    changed = true;
+                }
+
+                if (info.inHeat && p.secondarySex === "omega" && !p.heat?.active) {
+                    p.heat.active = true; p.heat.currentDay = 1;
+                    changed = true;
+                }
+
+                if (info.inRut && p.secondarySex === "alpha" && !p.rut?.active) {
+                    p.rut.active = true; p.rut.currentDay = 1;
+                    changed = true;
+                }
+
+                // Children
+                if (info.children?.length > 0) {
+                    for (const child of info.children) {
+                        if (!p.babies.find(b => b.name === child.name)) {
+                            p.babies.push({
+                                name: child.name, sex: child.sex || (Math.random() < 0.5 ? "M" : "F"),
+                                secondarySex: null, birthWeight: 3200, currentWeight: 5000,
+                                ageDays: 30, eyeColor: p.eyeColor || "", hairColor: p.hairColor || "",
+                                mother: p.bioSex === "F" ? name : "?", father: p.bioSex === "M" ? name : "?",
+                                nonHumanFeatures: [], state: "младенец",
+                                birthDate: { ...s.worldDate },
+                            });
+                            changed = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     if (changed) saveSettingsDebounced();
 }
 
 function makeProfile(name, isUser) {
     return {
         name, bioSex: "F", secondarySex: null, race: "human",
-        contraception: "none", eyeColor: "", hairColor: "",
-        pregnancyDifficulty: "normal",
+        contraception: "none", eyeColor: "", hairColor: "", pregnancyDifficulty: "normal",
         _isUser: isUser, _enabled: true,
-        _manualBioSex: false, _manualSecSex: false,
-        _manualRace: false, _manualEyes: false, _manualHair: false,
+        _mBio: false, _mSec: false, _mRace: false, _mEyes: false, _mHair: false, _mPreg: false,
         cycle: {
-            enabled: true,
-            currentDay: Math.floor(Math.random() * 28) + 1,
-            baseLength: 28, length: 28,
-            menstruationDuration: 5, irregularity: 2,
-            symptomIntensity: "moderate", cycleCount: 0,
+            enabled: true, currentDay: Math.floor(Math.random() * 28) + 1,
+            baseLength: 28, length: 28, menstruationDuration: 5,
+            irregularity: 2, symptomIntensity: "moderate", cycleCount: 0,
         },
-        pregnancy: {
-            active: false, week: 0, day: 0, maxWeeks: 40,
-            father: null, fetusCount: 1, complications: [], weightGain: 0,
-        },
-        labor: {
-            active: false, stage: "latent", dilation: 0,
-            contractionInterval: 0, contractionDuration: 0,
-            hoursElapsed: 0, babiesDelivered: 0, totalBabies: 1,
-        },
-        heat: {
-            active: false, currentDay: 0, duration: 5,
-            intensity: "moderate", daysSinceLast: 0, onSuppressants: false,
-        },
-        rut: {
-            active: false, currentDay: 0, duration: 4,
-            intensity: "moderate", daysSinceLast: 0,
-        },
+        pregnancy: { active: false, week: 0, day: 0, maxWeeks: 40, father: null, fetusCount: 1, complications: [], weightGain: 0 },
+        labor: { active: false, stage: "latent", dilation: 0, contractionInterval: 0, contractionDuration: 0, hoursElapsed: 0, babiesDelivered: 0, totalBabies: 1 },
+        heat: { active: false, currentDay: 0, cycleDays: 30, duration: 5, intensity: "moderate", daysSinceLast: Math.floor(Math.random() * 25), onSuppressants: false, phase: "rest" },
+        rut: { active: false, currentDay: 0, cycleDays: 35, duration: 4, intensity: "moderate", daysSinceLast: Math.floor(Math.random() * 30), phase: "rest" },
         babies: [],
     };
 }
@@ -464,66 +423,165 @@ function makeProfile(name, isUser) {
 
 class CycleManager {
     constructor(p) { this.p = p; this.c = p.cycle; }
-
     phase() {
-        if (!this.c || !this.c.enabled) return "unknown";
-        const d = this.c.currentDay, l = this.c.length, m = this.c.menstruationDuration;
-        const ov = Math.round(l - 14);
+        if (!this.c?.enabled) return "unknown";
+        const d = this.c.currentDay, l = this.c.length, m = this.c.menstruationDuration, ov = Math.round(l - 14);
         if (d <= m) return "menstruation";
         if (d < ov - 2) return "follicular";
         if (d <= ov + 1) return "ovulation";
         return "luteal";
     }
-
-    phaseLabel(ph) {
-        return { menstruation: "Менструация", follicular: "Фолликулярная", ovulation: "Овуляция", luteal: "Лютеиновая", unknown: "—" }[ph] || ph;
-    }
-
-    phaseEmoji(ph) {
-        return { menstruation: "🔴", follicular: "🌸", ovulation: "🥚", luteal: "🌙", unknown: "❓" }[ph] || "❓";
-    }
-
+    label(ph) { return { menstruation:"Менструация", follicular:"Фолликулярная", ovulation:"Овуляция", luteal:"Лютеиновая", unknown:"—" }[ph]||ph; }
+    emoji(ph) { return { menstruation:"🔴", follicular:"🌸", ovulation:"🥚", luteal:"🌙", unknown:"❓" }[ph]||"❓"; }
     fertility() {
-        const ph = this.phase();
-        const base = { ovulation: 0.25, follicular: 0.08, luteal: 0.02, menstruation: 0.01, unknown: 0.05 }[ph] || 0.05;
+        const b = { ovulation:0.25, follicular:0.08, luteal:0.02, menstruation:0.01, unknown:0.05 }[this.phase()]||0.05;
         const s = extension_settings[extensionName];
         let bonus = 0;
-        if (s.modules.auOverlay && s.auPreset === "omegaverse" && this.p.heat?.active) {
-            bonus = s.auSettings.omegaverse.heatFertilityBonus;
-        }
-        return Math.min(base + bonus, 0.95);
+        if (s.modules.auOverlay && s.auPreset === "omegaverse" && this.p.heat?.active) bonus = s.auSettings.omegaverse.heatFertilityBonus;
+        return Math.min(b + bonus, 0.95);
     }
-
     libido() {
-        const base = { ovulation: "высокое", follicular: "среднее", luteal: "низкое", menstruation: "низкое" }[this.phase()] || "среднее";
-        if (this.p.heat?.active) return "экстремальное";
-        if (this.p.rut?.active) return "экстремальное";
-        return base;
+        if (this.p.heat?.active || this.p.rut?.active) return "экстремальное";
+        return { ovulation:"высокое", follicular:"среднее", luteal:"низкое", menstruation:"низкое" }[this.phase()]||"среднее";
     }
-
     symptoms() {
-        const ph = this.phase(), int = this.c.symptomIntensity, r = [];
-        if (ph === "menstruation") { r.push("кровотечение"); if (int !== "mild") r.push("спазмы"); if (int === "severe") r.push("сильная боль"); }
-        if (ph === "ovulation") { r.push("повышенное либидо"); if (int !== "mild") r.push("чувствительность груди"); }
-        if (ph === "luteal") { r.push("ПМС"); if (int !== "mild") r.push("перепады настроения"); }
+        const ph = this.phase(), i = this.c.symptomIntensity, r = [];
+        if (ph === "menstruation") { r.push("кровотечение"); if (i !== "mild") r.push("спазмы"); if (i === "severe") r.push("сильная боль"); }
+        if (ph === "ovulation") { r.push("↑ либидо"); if (i !== "mild") r.push("чувствительность груди"); }
+        if (ph === "luteal") { r.push("ПМС"); if (i !== "mild") r.push("перепады настроения"); }
         if (ph === "follicular") r.push("прилив энергии");
         return r;
     }
-
-    discharge() {
-        return { menstruation: "менструальные", follicular: "скудные", ovulation: "обильные, прозрачные, тягучие", luteal: "густые, белые" }[this.phase()] || "обычные";
-    }
-
+    discharge() { return { menstruation:"менструальные", follicular:"скудные", ovulation:"обильные, тягучие", luteal:"густые, белые" }[this.phase()]||"обычные"; }
     advance(days) {
         for (let i = 0; i < days; i++) {
             this.c.currentDay++;
             if (this.c.currentDay > this.c.length) {
-                this.c.currentDay = 1;
-                this.c.cycleCount++;
-                if (this.c.irregularity > 0) {
-                    const v = Math.floor(Math.random() * this.c.irregularity * 2) - this.c.irregularity;
-                    this.c.length = clamp(this.c.baseLength + v, 21, 45);
-                }
+                this.c.currentDay = 1; this.c.cycleCount++;
+                if (this.c.irregularity > 0) { this.c.length = clamp(this.c.baseLength + Math.floor(Math.random() * this.c.irregularity * 2) - this.c.irregularity, 21, 45); }
+            }
+        }
+    }
+}
+
+// ==========================================
+// HEAT/RUT CYCLE MANAGER (separate tracking)
+// ==========================================
+
+class HeatRutManager {
+    constructor(p) { this.p = p; }
+
+    static HEAT_PHASES = { preHeat:"Предтечка", heat:"Течка", postHeat:"Посттечка", rest:"Покой" };
+    static RUT_PHASES = { preRut:"Предгон", rut:"Гон", postRut:"Постгон", rest:"Покой" };
+
+    heatPhase() {
+        const h = this.p.heat; if (!h) return "rest";
+        if (h.active) {
+            if (h.currentDay <= 1) return "preHeat";
+            if (h.currentDay <= h.duration - 1) return "heat";
+            return "postHeat";
+        }
+        // Days until next heat
+        const daysLeft = h.cycleDays - h.daysSinceLast;
+        if (daysLeft <= 3 && daysLeft > 0) return "preHeat";
+        return "rest";
+    }
+
+    rutPhase() {
+        const r = this.p.rut; if (!r) return "rest";
+        if (r.active) {
+            if (r.currentDay <= 1) return "preRut";
+            if (r.currentDay <= r.duration - 1) return "rut";
+            return "postRut";
+        }
+        const daysLeft = r.cycleDays - r.daysSinceLast;
+        if (daysLeft <= 3 && daysLeft > 0) return "preRut";
+        return "rest";
+    }
+
+    heatSymptoms() {
+        const phase = this.heatPhase();
+        const h = this.p.heat;
+        if (phase === "preHeat") return ["лёгкий жар", "беспокойство", "повышенная чувствительность", "слабый запах"];
+        if (phase === "heat") {
+            const base = ["сильный жар", "обильная самосмазка", "интенсивные феромоны", "затуманенное сознание", "потребность в близости"];
+            if (h?.intensity === "severe") base.push("болезненные спазмы", "дрожь", "невозможность концентрироваться");
+            return base;
+        }
+        if (phase === "postHeat") return ["утихающий жар", "усталость", "остаточная чувствительность"];
+        return [];
+    }
+
+    rutSymptoms() {
+        const phase = this.rutPhase();
+        if (phase === "preRut") return ["раздражительность", "повышенная агрессия", "территориальность"];
+        if (phase === "rut") return ["экстремальная агрессия", "доминантное поведение", "набухание узла", "навязчивое влечение", "рычание"];
+        if (phase === "postRut") return ["усталость", "утихающая агрессия", "ясность сознания"];
+        return [];
+    }
+
+    heatDaysUntilNext() {
+        const h = this.p.heat;
+        if (!h || h.active) return 0;
+        return Math.max(0, h.cycleDays - (h.daysSinceLast || 0));
+    }
+
+    rutDaysUntilNext() {
+        const r = this.p.rut;
+        if (!r || r.active) return 0;
+        return Math.max(0, r.cycleDays - (r.daysSinceLast || 0));
+    }
+
+    heatProgress() {
+        const h = this.p.heat;
+        if (!h) return 0;
+        if (h.active) return (h.currentDay / h.duration) * 100;
+        return ((h.daysSinceLast || 0) / h.cycleDays) * 100;
+    }
+
+    rutProgress() {
+        const r = this.p.rut;
+        if (!r) return 0;
+        if (r.active) return (r.currentDay / r.duration) * 100;
+        return ((r.daysSinceLast || 0) / r.cycleDays) * 100;
+    }
+
+    advanceHeat(days) {
+        const h = this.p.heat;
+        if (!h || h.onSuppressants) return;
+        const auS = extension_settings[extensionName].auSettings?.omegaverse;
+        h.cycleDays = auS?.heatCycleLength || 30;
+        h.duration = auS?.heatDuration || 5;
+
+        for (let i = 0; i < days; i++) {
+            if (h.active) {
+                h.currentDay++;
+                if (h.currentDay > h.duration) { h.active = false; h.currentDay = 0; h.daysSinceLast = 0; h.phase = "rest"; }
+                else { h.phase = this.heatPhase(); }
+            } else {
+                h.daysSinceLast = (h.daysSinceLast || 0) + 1;
+                if (h.daysSinceLast >= h.cycleDays) { h.active = true; h.currentDay = 1; h.intensity = "severe"; h.phase = "preHeat"; }
+                else { h.phase = this.heatPhase(); }
+            }
+        }
+    }
+
+    advanceRut(days) {
+        const r = this.p.rut;
+        if (!r) return;
+        const auS = extension_settings[extensionName].auSettings?.omegaverse;
+        r.cycleDays = auS?.rutCycleLength || 35;
+        r.duration = auS?.rutDuration || 4;
+
+        for (let i = 0; i < days; i++) {
+            if (r.active) {
+                r.currentDay++;
+                if (r.currentDay > r.duration) { r.active = false; r.currentDay = 0; r.daysSinceLast = 0; r.phase = "rest"; }
+                else { r.phase = this.rutPhase(); }
+            } else {
+                r.daysSinceLast = (r.daysSinceLast || 0) + 1;
+                if (r.daysSinceLast >= r.cycleDays) { r.active = true; r.currentDay = 1; r.intensity = "moderate"; r.phase = "preRut"; }
+                else { r.phase = this.rutPhase(); }
             }
         }
     }
@@ -535,151 +593,65 @@ class CycleManager {
 
 class PregnancyManager {
     constructor(p) { this.p = p; this.pr = p.pregnancy; }
-    active() { return this.pr && this.pr.active; }
-
+    active() { return this.pr?.active; }
     start(father, count) {
         const s = extension_settings[extensionName];
-        this.pr.active = true; this.pr.week = 1; this.pr.day = 0;
-        this.pr.father = father; this.pr.fetusCount = count || 1;
-        this.pr.weightGain = 0; this.pr.complications = [];
-
-        let maxW = 40;
-        if (s.modules.auOverlay && s.auPreset === "omegaverse") {
-            maxW = s.auSettings.omegaverse.pregnancyWeeks || 36;
-        } else if (s.modules.auOverlay && s.auPreset === "fantasy" && this.p.race) {
-            maxW = s.auSettings.fantasy.pregnancyByRace[this.p.race] || 40;
-        }
-        if (count > 1) maxW = Math.max(28, maxW - (count - 1) * 3);
-        this.pr.maxWeeks = maxW;
-
+        this.pr.active = true; this.pr.week = 1; this.pr.day = 0; this.pr.father = father; this.pr.fetusCount = count || 1; this.pr.weightGain = 0;
+        let mw = 40;
+        if (s.modules.auOverlay && s.auPreset === "omegaverse") mw = s.auSettings.omegaverse.pregnancyWeeks || 36;
+        else if (s.modules.auOverlay && s.auPreset === "fantasy" && this.p.race) mw = s.auSettings.fantasy.pregnancyByRace[this.p.race] || 40;
+        if (count > 1) mw = Math.max(28, mw - (count - 1) * 3);
+        this.pr.maxWeeks = mw;
         if (this.p.cycle) this.p.cycle.enabled = false;
     }
-
-    advanceDay(days) {
-        if (!this.active()) return;
-        this.pr.day += days;
-        while (this.pr.day >= 7) { this.pr.day -= 7; this.pr.week++; }
-        this.pr.weightGain = this.weightGain();
-    }
-
+    advanceDay(d) { if (!this.active()) return; this.pr.day += d; while (this.pr.day >= 7) { this.pr.day -= 7; this.pr.week++; } this.pr.weightGain = this.weightGain(); }
     trimester() { return this.pr.week <= 12 ? 1 : this.pr.week <= 27 ? 2 : 3; }
-
     fetalSize() {
-        const w = this.pr.week;
-        const sizes = [[4,"маковое зерно"],[6,"черника"],[8,"малина"],[10,"кумкват"],[12,"лайм"],[14,"лимон"],[16,"авокадо"],[18,"перец"],[20,"банан"],[22,"папайя"],[24,"кукуруза"],[26,"кабачок"],[28,"баклажан"],[30,"капуста"],[32,"тыква"],[34,"ананас"],[36,"дыня"],[38,"лук-порей"],[40,"арбуз"]];
-        let r = "эмбрион";
-        for (const [wk, sz] of sizes) { if (w >= wk) r = sz; }
-        return r;
+        const sizes = [[4,"маковое зерно"],[6,"черника"],[8,"малина"],[10,"кумкват"],[12,"лайм"],[14,"лимон"],[16,"авокадо"],[18,"перец"],[20,"банан"],[24,"кукуруза"],[28,"баклажан"],[32,"тыква"],[36,"дыня"],[40,"арбуз"]];
+        let r = "эмбрион"; for (const [w, n] of sizes) if (this.pr.week >= w) r = n; return r;
     }
-
     symptoms() {
-        const w = this.pr.week, r = [], diff = this.p.pregnancyDifficulty;
-        if (w >= 4 && w <= 14) {
-            r.push("тошнота", "усталость");
-            if (diff !== "easy") r.push("утренняя рвота");
-            if (diff === "severe" || diff === "complicated") r.push("сильный токсикоз");
-        }
-        if (w >= 14 && w <= 27) {
-            r.push("рост живота");
-            if (w >= 18) r.push("первые шевеления");
-        }
-        if (w >= 28) {
-            r.push("одышка", "отёки", "боли в спине");
-            if (w >= 32) r.push("тренировочные схватки");
-            if (w >= 36) r.push("давление в тазу", "гнездование");
-        }
-        if (this.pr.fetusCount > 1) r.push("многоплодная (повышенная нагрузка)");
-        return r;
+        const w = this.pr.week, r = [], d = this.p.pregnancyDifficulty;
+        if (w >= 4 && w <= 14) { r.push("тошнота","усталость"); if (d !== "easy") r.push("рвота"); }
+        if (w >= 14 && w <= 27) { r.push("рост живота"); if (w >= 18) r.push("шевеления"); }
+        if (w >= 28) { r.push("одышка","отёки"); if (w >= 32) r.push("тренировочные схватки"); if (w >= 36) r.push("гнездование"); }
+        if (this.pr.fetusCount > 1) r.push("многоплодная"); return r;
     }
-
-    movements() {
-        const w = this.pr.week;
-        if (w < 16) return "нет";
-        if (w < 22) return "лёгкие (бабочки)";
-        if (w < 28) return "заметные толчки";
-        if (w < 34) return "активные, видно снаружи";
-        return "сильные, но реже (мало места)";
-    }
-
+    movements() { const w = this.pr.week; if (w < 16) return "нет"; if (w < 22) return "бабочки"; if (w < 28) return "толчки"; if (w < 34) return "активные"; return "реже (мало места)"; }
     weightGain() {
-        const w = this.pr.week, fc = this.pr.fetusCount;
-        let base;
-        if (w <= 12) base = w * 0.2;
-        else if (w <= 27) base = 2.4 + (w - 12) * 0.45;
-        else base = 9.15 + (w - 27) * 0.4;
-        return Math.round(base * (1 + (fc - 1) * 0.3) * 10) / 10;
+        const w = this.pr.week; let b; if (w <= 12) b = w * 0.2; else if (w <= 27) b = 2.4 + (w-12) * 0.45; else b = 9.15 + (w-27) * 0.4;
+        return Math.round(b * (1 + (this.pr.fetusCount - 1) * 0.3) * 10) / 10;
     }
-
     bodyChanges() {
         const w = this.pr.week, r = [];
-        if (w >= 6) r.push("грудь увеличивается");
-        if (w >= 12) r.push("живот округляется");
-        if (w >= 16) r.push("живот заметен");
-        if (w >= 20) r.push("linea nigra");
-        if (w >= 24) r.push("растяжки");
-        if (w >= 28) r.push("пупок выпирает");
-        if (w >= 32) r.push("живот большой");
-        if (w >= 36) r.push("живот опускается");
-        return r;
+        if (w >= 6) r.push("грудь ↑"); if (w >= 12) r.push("живот округляется"); if (w >= 20) r.push("linea nigra"); if (w >= 24) r.push("растяжки"); if (w >= 28) r.push("пупок выпирает"); if (w >= 36) r.push("живот опускается"); return r;
     }
-
-    emotionalState() {
-        const t = this.trimester();
-        return { 1: "тревога, перепады", 2: "стабильнее, привязанность", 3: "нетерпение, страх, гнездование" }[t] || "стабильно";
-    }
+    emotion() { return { 1:"тревога, перепады", 2:"стабильнее, привязанность", 3:"нетерпение, гнездование" }[this.trimester()]||"стабильно"; }
 }
 
 // ==========================================
 // LABOR MANAGER
 // ==========================================
 
-const LABOR_STAGES = ["latent", "active", "transition", "pushing", "birth", "placenta"];
-const LABOR_LABELS = { latent: "Латентная", active: "Активная", transition: "Переходная", pushing: "Потуги", birth: "Рождение", placenta: "Плацента" };
+const L_STAGES = ["latent","active","transition","pushing","birth","placenta"];
+const L_LABELS = { latent:"Латентная", active:"Активная", transition:"Переходная", pushing:"Потуги", birth:"Рождение", placenta:"Плацента" };
 
 class LaborManager {
     constructor(p) { this.p = p; this.l = p.labor; }
-    isActive() { return this.l && this.l.active; }
-
-    start() {
-        this.l.active = true; this.l.stage = "latent"; this.l.dilation = 0;
-        this.l.contractionInterval = 20; this.l.contractionDuration = 30;
-        this.l.hoursElapsed = 0; this.l.babiesDelivered = 0;
-        this.l.totalBabies = this.p.pregnancy?.fetusCount || 1;
-    }
-
+    isActive() { return this.l?.active; }
+    start() { this.l.active = true; this.l.stage = "latent"; this.l.dilation = 0; this.l.contractionInterval = 20; this.l.contractionDuration = 30; this.l.hoursElapsed = 0; this.l.babiesDelivered = 0; this.l.totalBabies = this.p.pregnancy?.fetusCount || 1; }
     advance() {
-        const idx = LABOR_STAGES.indexOf(this.l.stage);
-        if (idx < LABOR_STAGES.length - 1) {
-            this.l.stage = LABOR_STAGES[idx + 1];
-            if (this.l.stage === "active") { this.l.dilation = 5; this.l.contractionInterval = 5; this.l.contractionDuration = 50; this.l.hoursElapsed += 4 + Math.floor(Math.random() * 6); }
-            if (this.l.stage === "transition") { this.l.dilation = 8; this.l.contractionInterval = 2; this.l.contractionDuration = 70; this.l.hoursElapsed += 2 + Math.floor(Math.random() * 3); }
+        const i = L_STAGES.indexOf(this.l.stage);
+        if (i < L_STAGES.length - 1) {
+            this.l.stage = L_STAGES[i + 1];
+            if (this.l.stage === "active") { this.l.dilation = 5; this.l.contractionInterval = 5; this.l.contractionDuration = 50; this.l.hoursElapsed += 4 + Math.floor(Math.random()*6); }
+            if (this.l.stage === "transition") { this.l.dilation = 8; this.l.contractionInterval = 2; this.l.contractionDuration = 70; this.l.hoursElapsed += 2; }
             if (this.l.stage === "pushing") { this.l.dilation = 10; this.l.hoursElapsed += 1; }
-            if (this.l.stage === "birth") { this.l.hoursElapsed += 0.5; }
-            if (this.l.stage === "placenta") { this.l.hoursElapsed += 0.25; }
         }
     }
-
-    description() {
-        return {
-            latent: "Лёгкие схватки каждые 15-20 мин, раскрытие 0-3 см.",
-            active: "Сильные схватки каждые 3-5 мин по 50-60 сек, раскрытие 4-7 см.",
-            transition: "Пиковые схватки каждые 1-2 мин, раскрытие 7-10 см. Тошнота, дрожь.",
-            pushing: "Полное раскрытие. Рефлекторные потуги.",
-            birth: "Выход головки, разворот плечиков, первый крик.",
-            placenta: "Рождение плаценты, сокращение матки.",
-        }[this.l.stage] || "";
-    }
-
-    deliver() {
-        this.l.babiesDelivered++;
-        if (this.l.babiesDelivered >= this.l.totalBabies) this.l.stage = "placenta";
-    }
-
-    end() {
-        this.l.active = false;
-        this.p.pregnancy.active = false;
-        if (this.p.cycle) { this.p.cycle.enabled = true; this.p.cycle.currentDay = 1; }
-    }
+    desc() { return { latent:"Лёгкие схватки, раскрытие 0-3 см", active:"Сильные схватки каждые 3-5 мин, 4-7 см", transition:"Пиковые схватки, 7-10 см, тошнота, дрожь", pushing:"Полное раскрытие, потуги", birth:"Рождение ребёнка", placenta:"Рождение плаценты" }[this.l.stage]||""; }
+    deliver() { this.l.babiesDelivered++; if (this.l.babiesDelivered >= this.l.totalBabies) this.l.stage = "placenta"; }
+    end() { this.l.active = false; this.p.pregnancy.active = false; if (this.p.cycle) { this.p.cycle.enabled = true; this.p.cycle.currentDay = 1; } }
 }
 
 // ==========================================
@@ -688,70 +660,21 @@ class LaborManager {
 
 class BabyManager {
     constructor(b) { this.b = b; }
-
-    static generate(mother, fatherName) {
-        const s = extension_settings[extensionName];
+    static gen(mother, father) {
+        const s = extension_settings[extensionName]; const fp = s.characters[father];
         const sex = Math.random() < 0.5 ? "M" : "F";
-        const fp = s.characters[fatherName];
-
-        let secondarySex = null;
-        if (s.modules.auOverlay && s.auPreset === "omegaverse") {
-            const r = Math.random();
-            secondarySex = r < 0.25 ? "alpha" : r < 0.75 ? "beta" : "omega";
-        }
-
-        const nonHumanFeatures = [];
-        if (s.modules.auOverlay && s.auPreset === "fantasy" && s.auSettings.fantasy.nonHumanFeatures) {
-            if (Math.random() < 0.3) nonHumanFeatures.push("заострённые уши");
-            if (Math.random() < 0.2) nonHumanFeatures.push("необычный цвет глаз");
-            if (Math.random() < 0.1) nonHumanFeatures.push("хвост");
-        }
-
-        const bw = 3200 + Math.floor(Math.random() * 800) - 400;
-        return {
-            name: "", sex, secondarySex,
-            birthWeight: mother.pregnancy?.fetusCount > 1 ? Math.round(bw * 0.85) : bw,
-            currentWeight: bw, ageDays: 0,
-            eyeColor: Math.random() < 0.5 ? (mother.eyeColor || "карие") : (fp?.eyeColor || "карие"),
-            hairColor: Math.random() < 0.5 ? (mother.hairColor || "тёмные") : (fp?.hairColor || "тёмные"),
-            mother: mother.name, father: fatherName,
-            nonHumanFeatures, state: "новорождённый",
-            birthDate: { ...s.worldDate },
-        };
+        let sec = null;
+        if (s.modules.auOverlay && s.auPreset === "omegaverse") { const r = Math.random(); sec = r < 0.25 ? "alpha" : r < 0.75 ? "beta" : "omega"; }
+        const nf = [];
+        if (s.modules.auOverlay && s.auPreset === "fantasy" && s.auSettings.fantasy.nonHumanFeatures) { if (Math.random() < 0.3) nf.push("заострённые уши"); if (Math.random() < 0.1) nf.push("хвост"); }
+        const bw = 3200 + Math.floor(Math.random()*800) - 400;
+        return { name: "", sex, secondarySex: sec, birthWeight: mother.pregnancy?.fetusCount > 1 ? Math.round(bw*0.85) : bw, currentWeight: bw, ageDays: 0,
+            eyeColor: Math.random() < 0.5 ? (mother.eyeColor||"") : (fp?.eyeColor||""), hairColor: Math.random() < 0.5 ? (mother.hairColor||"") : (fp?.hairColor||""),
+            mother: mother.name, father, nonHumanFeatures: nf, state: "новорождённый", birthDate: { ...s.worldDate } };
     }
-
-    ageLabel() {
-        const d = this.b.ageDays;
-        if (d < 1) return "новорождённый";
-        if (d < 7) return d + " дн.";
-        if (d < 30) return Math.floor(d / 7) + " нед.";
-        if (d < 365) return Math.floor(d / 30) + " мес.";
-        const y = Math.floor(d / 365), m = Math.floor((d % 365) / 30);
-        return m > 0 ? y + " г. " + m + " мес." : y + " г.";
-    }
-
-    milestones() {
-        const d = this.b.ageDays, r = [];
-        if (d >= 42) r.push("улыбка");
-        if (d >= 90) r.push("держит голову");
-        if (d >= 150) r.push("переворачивается");
-        if (d >= 180) r.push("сидит");
-        if (d >= 240) r.push("ползает");
-        if (d >= 300) r.push("встаёт");
-        if (d >= 365) r.push("первые шаги, слова");
-        if (d >= 545) r.push("фразы");
-        if (d >= 730) r.push("бегает");
-        return r;
-    }
-
-    update() {
-        const d = this.b.ageDays;
-        this.b.currentWeight = this.b.birthWeight + d * (d < 120 ? 30 : d < 365 ? 15 : 7);
-        if (d < 28) this.b.state = "новорождённый";
-        else if (d < 365) this.b.state = "младенец";
-        else if (d < 1095) this.b.state = "малыш";
-        else this.b.state = "ребёнок";
-    }
+    age() { const d = this.b.ageDays; if (d < 1) return "новорождённый"; if (d < 7) return d + " дн."; if (d < 30) return Math.floor(d/7) + " нед."; if (d < 365) return Math.floor(d/30) + " мес."; const y = Math.floor(d/365), m = Math.floor((d%365)/30); return m > 0 ? y + " г. " + m + " мес." : y + " г."; }
+    milestones() { const d = this.b.ageDays, r = []; if (d>=42) r.push("улыбка"); if (d>=90) r.push("держит голову"); if (d>=180) r.push("сидит"); if (d>=240) r.push("ползает"); if (d>=365) r.push("ходит, слова"); if (d>=730) r.push("бегает, фразы"); return r; }
+    update() { this.b.currentWeight = this.b.birthWeight + this.b.ageDays * (this.b.ageDays < 120 ? 30 : this.b.ageDays < 365 ? 15 : 7); if (this.b.ageDays < 28) this.b.state = "новорождённый"; else if (this.b.ageDays < 365) this.b.state = "младенец"; else if (this.b.ageDays < 1095) this.b.state = "малыш"; else this.b.state = "ребёнок"; }
 }
 
 // ==========================================
@@ -759,63 +682,19 @@ class BabyManager {
 // ==========================================
 
 class IntimacyManager {
-    static log(entry) {
-        const s = extension_settings[extensionName];
-        entry.timestamp = formatDate(s.worldDate);
-        s.intimacyLog.push(entry);
-        if (s.intimacyLog.length > 100) s.intimacyLog = s.intimacyLog.slice(-100);
-        saveSettingsDebounced();
-    }
-
-    static roll(targetChar, data) {
-        const s = extension_settings[extensionName];
-        const p = s.characters[targetChar];
-        if (!p) return { result: false, chance: 0, roll: 0 };
-
-        let fert = 0.05;
-        if (p.cycle?.enabled) fert = new CycleManager(p).fertility();
-
-        const contraEff = { none: 0, condom: 0.85, pill: 0.91, iud: 0.99, withdrawal: 0.73, patch: 0.91, injection: 0.94 }[p.contraception] || 0;
-
-        // If scene explicitly says no contraception, override
-        if (data.noContraception) {
-            // Don't apply contraception even if character has it set
-        } else if (data.hasContraception) {
-            fert *= (1 - 0.85); // Assume condom if detected
-        } else {
-            fert *= (1 - contraEff);
-        }
-
-        if (data.ejaculation === "outside") fert *= 0.05;
-        if (data.ejaculation === "na" || data.ejaculation === "unknown") {
-            // Unknown ejaculation: assume inside for vaginal
-            if (data.type !== "vaginal") fert = 0;
-        }
-        if (data.type === "anal" || data.type === "oral") fert = 0;
-        if (p.pregnancy?.active) fert = 0;
-
-        if (p.bioSex === "M") {
-            if (s.modules.auOverlay && s.auPreset === "omegaverse" && s.auSettings.omegaverse.maleOmegaPregnancy && p.secondarySex === "omega") {
-                // Male omega can get pregnant
-            } else {
-                fert = 0;
-            }
-        }
-
-        const chance = Math.round(clamp(fert, 0, 0.95) * 100);
-        const r = rollDice(100);
-        const result = r <= chance;
-
-        const entry = {
-            timestamp: formatDate(s.worldDate), targetChar,
-            participants: data.participants || [], chance, roll: r, result,
-            contraception: data.noContraception ? "нет (в сцене)" : (data.hasContraception ? "есть (в сцене)" : p.contraception),
-            actType: data.type, ejaculation: data.ejaculation,
-            autoDetected: data.autoDetected || false,
-        };
-        s.diceLog.push(entry);
-        if (s.diceLog.length > 50) s.diceLog = s.diceLog.slice(-50);
-        saveSettingsDebounced();
+    static log(entry) { const s = extension_settings[extensionName]; entry.ts = fmt(s.worldDate); s.intimacyLog.push(entry); if (s.intimacyLog.length > 100) s.intimacyLog = s.intimacyLog.slice(-100); saveSettingsDebounced(); }
+    static roll(target, data) {
+        const s = extension_settings[extensionName]; const p = s.characters[target]; if (!p) return { result: false, chance: 0, roll: 0 };
+        let f = 0.05; if (p.cycle?.enabled) f = new CycleManager(p).fertility();
+        const ce = { none:0, condom:0.85, pill:0.91, iud:0.99, withdrawal:0.73 }[p.contraception] || 0;
+        if (data.noCon) { /* no reduction */ } else if (data.contra) f *= 0.15; else f *= (1 - ce);
+        if (data.ejac === "outside") f *= 0.05;
+        if (data.type === "anal" || data.type === "oral") f = 0;
+        if (p.pregnancy?.active) f = 0;
+        if (p.bioSex === "M" && !(s.modules.auOverlay && s.auPreset === "omegaverse" && s.auSettings.omegaverse.maleOmegaPregnancy && p.secondarySex === "omega")) f = 0;
+        const ch = Math.round(clamp(f, 0, 0.95) * 100), r = dice(100), res = r <= ch;
+        const entry = { ts: fmt(s.worldDate), target, parts: data.parts || [], chance: ch, roll: r, result: res, contra: data.noCon ? "нет" : (data.contra ? "да" : p.contraception), type: data.type, ejac: data.ejac, auto: data.auto || false };
+        s.diceLog.push(entry); if (s.diceLog.length > 50) s.diceLog = s.diceLog.slice(-50); saveSettingsDebounced();
         return entry;
     }
 }
@@ -826,91 +705,26 @@ class IntimacyManager {
 
 class TimeParser {
     static parse(msg) {
-        const sens = extension_settings[extensionName].timeParserSensitivity;
-        let days = 0;
-
-        const pats = [
-            [/прошл[оа]\s+(\d+)\s+(?:дн|дней|день)/gi, 1],
-            [/через\s+(\d+)\s+(?:дн|дней|день)/gi, 1],
-            [/спустя\s+(\d+)\s+(?:дн|дней|день)/gi, 1],
-            [/прошл[оа]\s+(\d+)\s+(?:недел|нед)/gi, 7],
-            [/через\s+(\d+)\s+(?:недел|нед)/gi, 7],
-            [/спустя\s+(\d+)\s+(?:недел|нед)/gi, 7],
-            [/прошл[оа]\s+(\d+)\s+(?:месяц|мес)/gi, 30],
-            [/через\s+(\d+)\s+(?:месяц|мес)/gi, 30],
-            [/спустя\s+(\d+)\s+(?:месяц|мес)/gi, 30],
-            [/(\d+)\s+(?:days?|дн[ейя]?)\s+(?:later|passed|спустя|прошл)/gi, 1],
-            [/(\d+)\s+(?:weeks?|недел[ьиюя]?)\s+(?:later|passed|спустя|прошл)/gi, 7],
-            [/(\d+)\s+(?:months?|месяц\w*)\s+(?:later|passed|спустя|прошл)/gi, 30],
-        ];
-
-        for (const [re, mult] of pats) {
-            let m; while ((m = re.exec(msg)) !== null) days += parseInt(m[1]) * mult;
-        }
-
-        if (sens !== "low") {
-            if (/на следующ(?:ий|ее|ую)\s+(?:день|утро)/i.test(msg)) days += 1;
-            if (/next\s+(?:day|morning)/i.test(msg)) days += 1;
-            if (/через\s+пару\s+дней/i.test(msg)) days += 2;
-            if (/через\s+несколько\s+дней/i.test(msg)) days += 3;
-            if (/a\s+few\s+days\s+later/i.test(msg)) days += 3;
-            if (/на следующ(?:ей|ую)\s+неделе/i.test(msg)) days += 7;
-            if (/next\s+week/i.test(msg)) days += 7;
-        }
-
-        if (sens === "high") {
-            if (/прошёл\s+месяц/i.test(msg) || /a\s+month\s+(?:later|passed)/i.test(msg)) days += 30;
-            if (/прошла\s+неделя/i.test(msg) || /a\s+week\s+(?:later|passed)/i.test(msg)) days += 7;
-        }
-
+        const sens = extension_settings[extensionName].timeParserSensitivity; let days = 0;
+        const pats = [[/прошл[оа]\s+(\d+)\s+(?:дн|дней|день)/gi,1],[/через\s+(\d+)\s+(?:дн|дней|день)/gi,1],[/спустя\s+(\d+)\s+(?:дн|дней|день)/gi,1],[/прошл[оа]\s+(\d+)\s+(?:недел|нед)/gi,7],[/через\s+(\d+)\s+(?:недел|нед)/gi,7],[/прошл[оа]\s+(\d+)\s+(?:месяц|мес)/gi,30],[/через\s+(\d+)\s+(?:месяц|мес)/gi,30],[/(\d+)\s+(?:days?)\s+(?:later|passed)/gi,1],[/(\d+)\s+(?:weeks?)\s+later/gi,7],[/(\d+)\s+(?:months?)\s+later/gi,30]];
+        for (const [re, m] of pats) { let x; while ((x = re.exec(msg)) !== null) days += parseInt(x[1]) * m; }
+        if (sens !== "low") { if (/на следующ\w+\s+(?:день|утро)|next\s+(?:day|morning)/i.test(msg)) days += 1; if (/через\s+пару\s+дней|a\s+few\s+days/i.test(msg)) days += 2; if (/на следующ\w+\s+неделе|next\s+week/i.test(msg)) days += 7; }
+        if (sens === "high") { if (/прошёл\s+месяц|a\s+month\s+later/i.test(msg)) days += 30; if (/прошла\s+неделя|a\s+week\s+later/i.test(msg)) days += 7; }
         return days > 0 ? days : null;
     }
-
-    static apply(days) {
-        const s = extension_settings[extensionName];
-        s.worldDate = addDays(s.worldDate, days);
-        TimeParser.advanceAll(days);
-        saveSettingsDebounced();
-    }
-
+    static apply(d) { const s = extension_settings[extensionName]; s.worldDate = addDays(s.worldDate, d); TimeParser.advanceAll(d); saveSettingsDebounced(); }
     static advanceAll(days) {
         const s = extension_settings[extensionName];
         Object.values(s.characters).forEach(p => {
             if (!p._enabled) return;
-
-            if (s.modules.cycle && p.cycle?.enabled && !p.pregnancy?.active) {
-                new CycleManager(p).advance(days);
-            }
-
-            if (s.modules.pregnancy && p.pregnancy?.active) {
-                new PregnancyManager(p).advanceDay(days);
-            }
-
+            if (s.modules.cycle && p.cycle?.enabled && !p.pregnancy?.active) new CycleManager(p).advance(days);
+            if (s.modules.pregnancy && p.pregnancy?.active) new PregnancyManager(p).advanceDay(days);
             if (s.modules.auOverlay && s.auPreset === "omegaverse" && p.secondarySex) {
-                const auS = s.auSettings.omegaverse;
-                if (p.secondarySex === "omega" && p.heat && !p.heat.onSuppressants) {
-                    if (p.heat.active) {
-                        p.heat.currentDay += days;
-                        if (p.heat.currentDay > p.heat.duration) { p.heat.active = false; p.heat.currentDay = 0; p.heat.daysSinceLast = 0; }
-                    } else {
-                        p.heat.daysSinceLast = (p.heat.daysSinceLast || 0) + days;
-                        if (p.heat.daysSinceLast >= auS.heatCycleLength) { p.heat.active = true; p.heat.currentDay = 1; p.heat.duration = auS.heatDuration; p.heat.intensity = "severe"; }
-                    }
-                }
-                if (p.secondarySex === "alpha" && p.rut) {
-                    if (p.rut.active) {
-                        p.rut.currentDay += days;
-                        if (p.rut.currentDay > p.rut.duration) { p.rut.active = false; p.rut.currentDay = 0; p.rut.daysSinceLast = 0; }
-                    } else {
-                        p.rut.daysSinceLast = (p.rut.daysSinceLast || 0) + days;
-                        if (p.rut.daysSinceLast >= auS.heatCycleLength + 5) { p.rut.active = true; p.rut.currentDay = 1; p.rut.duration = auS.rutDuration; p.rut.intensity = "moderate"; }
-                    }
-                }
+                const hrm = new HeatRutManager(p);
+                if (p.secondarySex === "omega") hrm.advanceHeat(days);
+                if (p.secondarySex === "alpha") hrm.advanceRut(days);
             }
-
-            if (s.modules.baby && p.babies?.length > 0) {
-                p.babies.forEach(b => { b.ageDays += days; new BabyManager(b).update(); });
-            }
+            if (s.modules.baby && p.babies?.length > 0) p.babies.forEach(b => { b.ageDays += days; new BabyManager(b).update(); });
         });
         saveSettingsDebounced();
     }
@@ -921,1495 +735,743 @@ class TimeParser {
 // ==========================================
 
 class PromptInjector {
-    static generate() {
-        const s = extension_settings[extensionName];
-        if (!s.promptInjectionEnabled) return "";
-        const det = s.promptInjectionDetail;
-        const lines = ["[LifeCycle System Data]", "World Date: " + formatDate(s.worldDate)];
-
+    static gen() {
+        const s = extension_settings[extensionName]; if (!s.promptInjectionEnabled) return "";
+        const d = s.promptInjectionDetail, lines = ["[LifeCycle System]", "Date: " + fmt(s.worldDate)];
         Object.entries(s.characters).forEach(([name, p]) => {
             if (!p._enabled) return;
             lines.push("\n--- " + name + " ---");
-            lines.push("Bio Sex: " + p.bioSex);
-
-            if (s.modules.auOverlay && s.auPreset === "omegaverse" && p.secondarySex) {
-                lines.push("Secondary Sex: " + p.secondarySex);
-            }
+            lines.push("Sex: " + p.bioSex + (p.secondarySex ? " / " + p.secondarySex : ""));
 
             if (s.modules.auOverlay && s.auPreset === "omegaverse") {
+                const hrm = new HeatRutManager(p);
                 if (p.heat?.active) {
-                    lines.push("IN HEAT: Day " + p.heat.currentDay + "/" + p.heat.duration + " - heightened arousal, self-lubrication, pheromones, foggy thinking, desperation for physical contact");
+                    const ph = HeatRutManager.HEAT_PHASES[hrm.heatPhase()];
+                    lines.push("IN HEAT (" + ph + "): Day " + p.heat.currentDay + "/" + p.heat.duration);
+                    lines.push("Heat symptoms: " + hrm.heatSymptoms().join(", "));
+                } else if (p.secondarySex === "omega") {
+                    lines.push("Heat cycle: " + hrm.heatDaysUntilNext() + " days until next heat");
                 }
                 if (p.rut?.active) {
-                    lines.push("IN RUT: Day " + p.rut.currentDay + "/" + p.rut.duration + " - aggression, extreme libido, possessiveness, knot swelling");
+                    const ph = HeatRutManager.RUT_PHASES[hrm.rutPhase()];
+                    lines.push("IN RUT (" + ph + "): Day " + p.rut.currentDay + "/" + p.rut.duration);
+                    lines.push("Rut symptoms: " + hrm.rutSymptoms().join(", "));
+                } else if (p.secondarySex === "alpha") {
+                    lines.push("Rut cycle: " + hrm.rutDaysUntilNext() + " days until next rut");
                 }
-                if (p.heat?.onSuppressants) {
-                    lines.push("On heat suppressants (symptoms reduced but not eliminated)");
-                }
+                if (p.heat?.onSuppressants) lines.push("On suppressants (symptoms reduced)");
             }
 
             if (s.modules.cycle && p.cycle?.enabled && !p.pregnancy?.active) {
                 const cm = new CycleManager(p);
-                const ph = cm.phase();
-                lines.push("Cycle: Day " + p.cycle.currentDay + "/" + p.cycle.length + ", Phase: " + cm.phaseLabel(ph));
-                if (det !== "low") {
-                    lines.push("Fertility: " + Math.round(cm.fertility() * 100) + "%");
-                    lines.push("Libido: " + cm.libido());
-                    const sym = cm.symptoms();
-                    if (sym.length) lines.push("Symptoms: " + sym.join(", "));
-                }
-                if (det === "high") {
-                    lines.push("Discharge: " + cm.discharge());
-                }
+                lines.push("Cycle: Day " + p.cycle.currentDay + "/" + p.cycle.length + " (" + cm.label(cm.phase()) + ")");
+                if (d !== "low") { lines.push("Fertility: " + Math.round(cm.fertility()*100) + "%, Libido: " + cm.libido()); const sy = cm.symptoms(); if (sy.length) lines.push("Symptoms: " + sy.join(", ")); }
+                if (d === "high") lines.push("Discharge: " + cm.discharge());
             }
 
             if (s.modules.pregnancy && p.pregnancy?.active) {
                 const pm = new PregnancyManager(p);
-                lines.push("PREGNANT: Week " + p.pregnancy.week + "/" + p.pregnancy.maxWeeks + ", Trimester " + pm.trimester());
-                lines.push("Fetal size: ~" + pm.fetalSize());
-                lines.push("Fetuses: " + p.pregnancy.fetusCount);
-                if (det !== "low") {
-                    lines.push("Symptoms: " + pm.symptoms().join(", "));
-                    lines.push("Movements: " + pm.movements());
-                    lines.push("Weight gain: +" + pm.weightGain() + " kg");
-                }
-                if (det === "high") {
-                    lines.push("Body changes: " + pm.bodyChanges().join(", "));
-                    lines.push("Emotions: " + pm.emotionalState());
-                }
+                lines.push("PREGNANT: Week " + p.pregnancy.week + "/" + p.pregnancy.maxWeeks + " (T" + pm.trimester() + ")");
+                lines.push("Size: ~" + pm.fetalSize() + ", Fetuses: " + p.pregnancy.fetusCount);
+                if (d !== "low") { lines.push("Symptoms: " + pm.symptoms().join(", ")); lines.push("Movements: " + pm.movements() + ", +Weight: " + pm.weightGain() + "kg"); }
+                if (d === "high") { lines.push("Body: " + pm.bodyChanges().join(", ")); lines.push("Emotions: " + pm.emotion()); }
             }
 
             if (s.modules.labor && p.labor?.active) {
-                const lm = new LaborManager(p);
-                lines.push("IN LABOR: " + LABOR_LABELS[p.labor.stage] + ", Dilation: " + p.labor.dilation + "cm");
-                lines.push("Contractions: every " + p.labor.contractionInterval + "min, " + p.labor.contractionDuration + "sec");
-                if (det !== "low") lines.push(lm.description());
+                lines.push("IN LABOR: " + L_LABELS[p.labor.stage] + " (" + p.labor.dilation + "cm)");
+                lines.push(new LaborManager(p).desc());
             }
 
-            if (s.modules.baby && p.babies?.length > 0 && det !== "low") {
-                p.babies.forEach(b => {
-                    const bm = new BabyManager(b);
-                    lines.push("Baby: " + (b.name || "unnamed") + " (" + (b.sex === "M" ? "boy" : "girl") + ", " + bm.ageLabel() + ", " + b.state + ")");
-                });
+            if (s.modules.baby && p.babies?.length > 0 && d !== "low") {
+                p.babies.forEach(b => { const bm = new BabyManager(b); lines.push("Child: " + (b.name||"?") + " (" + (b.sex==="M"?"♂":"♀") + ", " + bm.age() + ")"); });
             }
-
-            if (p.contraception && p.contraception !== "none") lines.push("Contraception: " + p.contraception);
+            if (p.contraception !== "none") lines.push("Contraception: " + p.contraception);
         });
 
-        lines.push("\n[Instructions for AI]");
-        lines.push("- Reflect cycle symptoms, libido level, and physical state naturally in character behavior");
-        lines.push("- If a character is in heat/rut, show the physiological effects (heat flush, slick, scent, desperation/aggression)");
-        lines.push("- Pregnancy symptoms should manifest organically in actions and dialogue");
-        lines.push("- During labor, describe pain, breathing, contractions in visceral detail");
-        lines.push("- Baby behavior must match developmental stage");
-        lines.push("[/LifeCycle System Data]");
-
+        lines.push("\n[Instructions]");
+        lines.push("Reflect all physical states naturally. Heat/rut = show physiological effects. Pregnancy = organic symptoms. Labor = visceral detail. Baby = match developmental stage.");
+        lines.push("[/LifeCycle System]");
         return lines.join("\n");
     }
 }
 
 // ==========================================
-// STATUS WIDGET (appended after every AI message)
+// CONTEXTUAL STATUS WIDGET
 // ==========================================
 
 class StatusWidget {
     static generate() {
         const s = extension_settings[extensionName];
         if (!s.enabled || !s.showStatusWidget) return "";
-
-        const chars = Object.entries(s.characters).filter(([_, p]) => p._enabled);
+        const chars = Object.entries(s.characters).filter(([_,p]) => p._enabled);
         if (chars.length === 0) return "";
 
         let html = '<div class="lc-status-widget">';
-        html += '<div class="lc-sw-header" id="lc-sw-toggle">📊 LifeCycle Status <span class="lc-sw-arrow">▼</span></div>';
+        html += '<div class="lc-sw-header" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'\':\'none\';this.querySelector(\'.lc-sw-arrow\').textContent=this.nextElementSibling.style.display===\'none\'?\'▶\':\'▼\'">';
+        html += '<span>🌿 LifeCycle</span><span class="lc-sw-arrow">▼</span></div>';
         html += '<div class="lc-sw-body">';
-        html += '<div class="lc-sw-date">' + formatDate(s.worldDate) + '</div>';
+        html += '<div class="lc-sw-date">' + fmt(s.worldDate) + '</div>';
 
         for (const [name, p] of chars) {
-            html += '<div class="lc-sw-char">';
-            html += '<div class="lc-sw-char-name">' + name + '</div>';
+            // Determine which context to show
+            const hasLabor = s.modules.labor && p.labor?.active;
+            const hasPreg = s.modules.pregnancy && p.pregnancy?.active;
+            const hasHeat = s.modules.auOverlay && s.auPreset === "omegaverse" && p.heat?.active;
+            const hasRut = s.modules.auOverlay && s.auPreset === "omegaverse" && p.rut?.active;
+            const hasCycle = s.modules.cycle && p.cycle?.enabled && !hasPreg;
+            const hasBabies = s.modules.baby && p.babies?.length > 0;
+            const isOmega = s.modules.auOverlay && s.auPreset === "omegaverse" && p.secondarySex === "omega" && !hasHeat;
+            const isAlpha = s.modules.auOverlay && s.auPreset === "omegaverse" && p.secondarySex === "alpha" && !hasRut;
 
-            // Cycle
-            if (s.modules.cycle && p.cycle?.enabled && !p.pregnancy?.active) {
+            html += '<div class="lc-sw-char">';
+            html += '<div class="lc-sw-char-name">' + name;
+            if (p.secondarySex) html += ' <span class="lc-sw-sec-badge">' + p.secondarySex + '</span>';
+            html += '</div>';
+
+            // === LABOR (highest priority) ===
+            if (hasLabor) {
+                const lm = new LaborManager(p);
+                html += '<div class="lc-sw-block lc-sw-labor-block">';
+                html += '<div class="lc-sw-block-title">🏥 РОДЫ</div>';
+                html += '<div class="lc-sw-row">Стадия: <strong>' + L_LABELS[p.labor.stage] + '</strong></div>';
+                html += '<div class="lc-sw-row">Раскрытие: ' + p.labor.dilation + '/10 см</div>';
+                html += '<div class="lc-sw-mini-progress"><div class="lc-sw-mini-fill labor" style="width:' + (p.labor.dilation*10) + '%"></div></div>';
+                html += '<div class="lc-sw-row">Схватки: каждые ' + p.labor.contractionInterval + ' мин</div>';
+                html += '<div class="lc-sw-row lc-sw-desc">' + lm.desc() + '</div>';
+                html += '</div>';
+            }
+
+            // === PREGNANCY ===
+            else if (hasPreg) {
+                const pm = new PregnancyManager(p);
+                const prog = Math.round((p.pregnancy.week / p.pregnancy.maxWeeks) * 100);
+                html += '<div class="lc-sw-block lc-sw-preg-block">';
+                html += '<div class="lc-sw-block-title">🤰 БЕРЕМЕННОСТЬ</div>';
+                html += '<div class="lc-sw-row">Неделя <strong>' + p.pregnancy.week + '/' + p.pregnancy.maxWeeks + '</strong> · Триместр ' + pm.trimester() + '</div>';
+                html += '<div class="lc-sw-mini-progress"><div class="lc-sw-mini-fill preg" style="width:' + prog + '%"></div></div>';
+                html += '<div class="lc-sw-row">Размер плода: ~' + pm.fetalSize() + '</div>';
+                html += '<div class="lc-sw-row">Шевеления: ' + pm.movements() + '</div>';
+                html += '<div class="lc-sw-row">Прибавка: +' + pm.weightGain() + ' кг</div>';
+                const sym = pm.symptoms();
+                if (sym.length > 0) html += '<div class="lc-sw-symptoms">' + sym.join(' · ') + '</div>';
+                html += '</div>';
+            }
+
+            // === HEAT ===
+            if (hasHeat) {
+                const hrm = new HeatRutManager(p);
+                const ph = HeatRutManager.HEAT_PHASES[hrm.heatPhase()];
+                html += '<div class="lc-sw-block lc-sw-heat-block">';
+                html += '<div class="lc-sw-block-title">🔥 ТЕЧКА — ' + ph + '</div>';
+                html += '<div class="lc-sw-row">День ' + p.heat.currentDay + '/' + p.heat.duration + '</div>';
+                html += '<div class="lc-sw-mini-progress"><div class="lc-sw-mini-fill heat" style="width:' + hrm.heatProgress() + '%"></div></div>';
+                const hs = hrm.heatSymptoms();
+                if (hs.length > 0) html += '<div class="lc-sw-symptoms">' + hs.join(' · ') + '</div>';
+                html += '</div>';
+            }
+
+            // === RUT ===
+            if (hasRut) {
+                const hrm = new HeatRutManager(p);
+                const ph = HeatRutManager.RUT_PHASES[hrm.rutPhase()];
+                html += '<div class="lc-sw-block lc-sw-rut-block">';
+                html += '<div class="lc-sw-block-title">💢 ГОН — ' + ph + '</div>';
+                html += '<div class="lc-sw-row">День ' + p.rut.currentDay + '/' + p.rut.duration + '</div>';
+                html += '<div class="lc-sw-mini-progress"><div class="lc-sw-mini-fill rut" style="width:' + hrm.rutProgress() + '%"></div></div>';
+                const rs = hrm.rutSymptoms();
+                if (rs.length > 0) html += '<div class="lc-sw-symptoms">' + rs.join(' · ') + '</div>';
+                html += '</div>';
+            }
+
+            // === HEAT/RUT CYCLE (not active, but tracking) ===
+            if (isOmega && !hasPreg && !hasLabor) {
+                const hrm = new HeatRutManager(p);
+                const daysLeft = hrm.heatDaysUntilNext();
+                html += '<div class="lc-sw-block lc-sw-cycle-block">';
+                html += '<div class="lc-sw-block-title">🔮 Цикл течки</div>';
+                html += '<div class="lc-sw-row">До следующей: ' + daysLeft + ' дн.' + (daysLeft <= 3 ? ' ⚠️' : '') + '</div>';
+                html += '<div class="lc-sw-mini-progress"><div class="lc-sw-mini-fill heat-cycle" style="width:' + hrm.heatProgress() + '%"></div></div>';
+                if (p.heat?.onSuppressants) html += '<div class="lc-sw-row">💊 Супрессанты активны</div>';
+                html += '</div>';
+            }
+
+            if (isAlpha && !hasPreg && !hasLabor) {
+                const hrm = new HeatRutManager(p);
+                const daysLeft = hrm.rutDaysUntilNext();
+                html += '<div class="lc-sw-block lc-sw-cycle-block">';
+                html += '<div class="lc-sw-block-title">⚡ Цикл гона</div>';
+                html += '<div class="lc-sw-row">До следующего: ' + daysLeft + ' дн.' + (daysLeft <= 3 ? ' ⚠️' : '') + '</div>';
+                html += '<div class="lc-sw-mini-progress"><div class="lc-sw-mini-fill rut-cycle" style="width:' + hrm.rutProgress() + '%"></div></div>';
+                html += '</div>';
+            }
+
+            // === MENSTRUAL CYCLE ===
+            if (hasCycle && !hasLabor) {
                 const cm = new CycleManager(p);
                 const ph = cm.phase();
                 const fert = cm.fertility();
-                let fertClass = "low";
-                if (fert >= 0.2) fertClass = "peak";
-                else if (fert >= 0.1) fertClass = "high";
-                else if (fert >= 0.05) fertClass = "med";
+                let fc = "low"; if (fert >= 0.2) fc = "peak"; else if (fert >= 0.1) fc = "high"; else if (fert >= 0.05) fc = "med";
 
-                html += '<div class="lc-sw-row">' + cm.phaseEmoji(ph) + ' <span class="lc-sw-label">' + cm.phaseLabel(ph) + '</span> (д.' + p.cycle.currentDay + '/' + p.cycle.length + ') <span class="lc-sw-fert ' + fertClass + '">♥ ' + Math.round(fert * 100) + '%</span></div>';
-
-                const sym = cm.symptoms();
-                if (sym.length > 0) {
-                    html += '<div class="lc-sw-symptoms">' + sym.join(', ') + '</div>';
-                }
+                html += '<div class="lc-sw-block lc-sw-cycle-block">';
+                html += '<div class="lc-sw-block-title">' + cm.emoji(ph) + ' ' + cm.label(ph) + '</div>';
+                html += '<div class="lc-sw-row">День ' + p.cycle.currentDay + '/' + p.cycle.length + ' · Фертильность: <span class="lc-sw-fert ' + fc + '">' + Math.round(fert*100) + '%</span></div>';
+                html += '<div class="lc-sw-row">Либидо: ' + cm.libido() + ' · Выделения: ' + cm.discharge() + '</div>';
+                const sy = cm.symptoms();
+                if (sy.length > 0) html += '<div class="lc-sw-symptoms">' + sy.join(' · ') + '</div>';
+                html += '</div>';
             }
 
-            // Heat
-            if (s.modules.auOverlay && s.auPreset === "omegaverse" && p.heat?.active) {
-                html += '<div class="lc-sw-row lc-sw-heat">🔥 Течка: д.' + p.heat.currentDay + '/' + p.heat.duration + '</div>';
-            }
-
-            // Rut
-            if (s.modules.auOverlay && s.auPreset === "omegaverse" && p.rut?.active) {
-                html += '<div class="lc-sw-row lc-sw-rut">💢 Гон: д.' + p.rut.currentDay + '/' + p.rut.duration + '</div>';
-            }
-
-            // Pregnancy
-            if (s.modules.pregnancy && p.pregnancy?.active) {
-                const pm = new PregnancyManager(p);
-                const pr = p.pregnancy;
-                const prog = Math.round((pr.week / pr.maxWeeks) * 100);
-                html += '<div class="lc-sw-row">🤰 <span class="lc-sw-label">Нед. ' + pr.week + '/' + pr.maxWeeks + '</span> (Т' + pm.trimester() + ') ~' + pm.fetalSize() + '</div>';
-                html += '<div class="lc-sw-progress"><div class="lc-sw-progress-fill" style="width:' + prog + '%"></div></div>';
-                const sym = pm.symptoms();
-                if (sym.length > 0) html += '<div class="lc-sw-symptoms">' + sym.slice(0, 3).join(', ') + '</div>';
-            }
-
-            // Labor
-            if (s.modules.labor && p.labor?.active) {
-                html += '<div class="lc-sw-row lc-sw-labor">🏥 ' + LABOR_LABELS[p.labor.stage] + ' | Раскрытие: ' + p.labor.dilation + '/10 см</div>';
-            }
-
-            // Babies
-            if (s.modules.baby && p.babies?.length > 0) {
+            // === BABIES ===
+            if (hasBabies) {
+                html += '<div class="lc-sw-block lc-sw-baby-block">';
                 for (const b of p.babies) {
                     const bm = new BabyManager(b);
-                    html += '<div class="lc-sw-row">👶 ' + (b.name || '?') + ' (' + (b.sex === 'M' ? '♂' : '♀') + ') ' + bm.ageLabel() + '</div>';
+                    const ms = bm.milestones();
+                    html += '<div class="lc-sw-baby-row">';
+                    html += '👶 <strong>' + (b.name || '?') + '</strong> (' + (b.sex === "M" ? '♂' : '♀') + ') — ' + bm.age() + ' · ' + b.state;
+                    if (ms.length > 0) html += '<br><span class="lc-sw-milestones">Вехи: ' + ms.join(', ') + '</span>';
+                    html += '</div>';
                 }
+                html += '</div>';
             }
 
             html += '</div>'; // end sw-char
         }
 
-        // Last dice roll
+        // Last dice
         if (s.diceLog.length > 0) {
             const last = s.diceLog[s.diceLog.length - 1];
-            html += '<div class="lc-sw-dice-last">';
-            html += '<div class="lc-sw-dice-title">Последний бросок:</div>';
-            html += '<div class="' + (last.result ? 'lc-sw-dice-success' : 'lc-sw-dice-fail') + '">';
-            html += '🎲 ' + last.roll + ' / ' + last.chance + '% ' + (last.result ? '✅ Зачатие!' : '❌ Нет') + ' (' + last.targetChar + ')';
-            html += '</div></div>';
+            html += '<div class="lc-sw-dice">';
+            html += '<span class="lc-sw-dice-label">Последний бросок:</span> ';
+            html += '<span class="' + (last.result ? 'lc-sw-dice-win' : 'lc-sw-dice-lose') + '">🎲 ' + last.roll + '/' + last.chance + '% — ' + (last.result ? '✅ Зачатие!' : '❌ Нет') + '</span>';
+            if (last.auto) html += ' <span class="lc-tag lc-tag-auto">авто</span>';
+            html += '</div>';
         }
 
-        html += '</div>'; // end sw-body
-        html += '</div>'; // end widget
-
+        html += '</div></div>';
         return html;
     }
 
-    static inject(messageIdx) {
+    static inject(msgIdx) {
         const s = extension_settings[extensionName];
         if (!s.enabled || !s.showStatusWidget) return;
-
-        const ctx = getContext();
-        if (!ctx.chat || messageIdx < 0) return;
-
-        const widgetHTML = StatusWidget.generate();
-        if (!widgetHTML) return;
-
-        s.lastWidgetHTML = widgetHTML;
-
-        // Insert widget into the chat message DOM
+        const w = StatusWidget.generate();
+        if (!w) return;
         setTimeout(() => {
-            const msgEl = document.querySelector(`#chat .mes[mesid="${messageIdx}"]`);
-            if (!msgEl) return;
-            const mesText = msgEl.querySelector('.mes_text');
-            if (!mesText) return;
-
-            // Remove old widget if exists
-            mesText.querySelectorAll('.lc-status-widget').forEach(w => w.remove());
-            mesText.insertAdjacentHTML('beforeend', widgetHTML);
-
-            // Bind toggle
-            mesText.querySelectorAll('.lc-sw-header').forEach(hdr => {
-                hdr.addEventListener('click', function() {
-                    const body = this.nextElementSibling;
-                    const arrow = this.querySelector('.lc-sw-arrow');
-                    if (body.style.display === 'none') {
-                        body.style.display = '';
-                        arrow.textContent = '▼';
-                    } else {
-                        body.style.display = 'none';
-                        arrow.textContent = '▶';
-                    }
-                });
-            });
-        }, 200);
+            const el = document.querySelector('#chat .mes[mesid="' + msgIdx + '"]');
+            if (!el) return;
+            const mt = el.querySelector('.mes_text');
+            if (!mt) return;
+            mt.querySelectorAll('.lc-status-widget').forEach(x => x.remove());
+            mt.insertAdjacentHTML('beforeend', w);
+        }, 300);
     }
 }
 
 // ==========================================
-// DICE POPUP (for auto and manual rolls)
+// DICE POPUP
 // ==========================================
 
-function showDicePopup(result, target, isAuto) {
+function showDicePopup(res, target, isAuto) {
     document.querySelector(".lc-overlay")?.remove();
     document.querySelector(".lc-popup")?.remove();
-
     const ov = document.createElement("div"); ov.className = "lc-overlay";
     const pop = document.createElement("div"); pop.className = "lc-popup";
-
-    const cls = result.result ? "success" : "fail";
-    const txt = result.result ? "ЗАЧАТИЕ ПРОИЗОШЛО!" : "Зачатие не произошло";
-    const autoLabel = isAuto ? '<div class="lc-popup-auto">🤖 Авто-определение</div>' : '';
-
-    pop.innerHTML = '<div class="lc-popup-title">🎲 Бросок фертильности</div>' + autoLabel +
+    const cls = res.result ? "success" : "fail";
+    pop.innerHTML = '<div class="lc-popup-title">🎲 Бросок на зачатие</div>' +
+        (isAuto ? '<div class="lc-popup-auto">⚡ Авто-детекция</div>' : '') +
         '<div class="lc-popup-details">' +
-            '<div><strong>Персонаж:</strong> ' + target + '</div>' +
-            '<div><strong>Шанс:</strong> ' + result.chance + '%</div>' +
-            '<div><strong>Контрацепция:</strong> ' + result.contraception + '</div>' +
-            '<div><strong>Тип акта:</strong> ' + result.actType + '</div>' +
-            '<div><strong>Эякуляция:</strong> ' + result.ejaculation + '</div>' +
-            '<hr class="lc-sep">' +
-            '<div><strong>Порог:</strong> ≤' + result.chance + '</div>' +
+            '<div>Цель: <strong>' + target + '</strong></div>' +
+            '<div>Тип: ' + res.type + ' | Эякуляция: ' + res.ejac + '</div>' +
+            '<div>Контрацепция: ' + res.contra + '</div>' +
+            '<div>Шанс: ' + res.chance + '%</div>' +
         '</div>' +
-        '<div class="lc-popup-result ' + cls + '">🎲 ' + result.roll + '</div>' +
-        '<div class="lc-popup-verdict ' + cls + '">' + txt + '</div>' +
+        '<div class="lc-popup-result ' + cls + '">' + res.roll + ' / ' + res.chance + '</div>' +
+        '<div class="lc-popup-verdict ' + cls + '">' + (res.result ? '✅ ЗАЧАТИЕ!' : '❌ Нет зачатия') + '</div>' +
         '<div class="lc-popup-actions">' +
-            '<button id="lc-dice-accept" class="lc-btn lc-btn-success">Принять</button>' +
-            '<button id="lc-dice-reroll" class="lc-btn">Перебросить</button>' +
-            '<button id="lc-dice-cancel" class="lc-btn lc-btn-danger">Отмена</button>' +
+            '<button id="lc-d-ok" class="lc-btn lc-btn-success">Принять</button>' +
+            '<button id="lc-d-re" class="lc-btn">🎲 Перебросить</button>' +
+            '<button id="lc-d-no" class="lc-btn lc-btn-danger">Отмена</button>' +
         '</div>';
-
-    document.body.appendChild(ov);
-    document.body.appendChild(pop);
-
-    document.getElementById("lc-dice-accept").addEventListener("click", () => {
-        if (result.result) {
-            const s = extension_settings[extensionName];
-            const p = s.characters[target];
-            if (p) {
-                const father = result.participants?.find(x => x !== target) || "?";
-                new PregnancyManager(p).start(father, 1);
-                saveSettingsDebounced();
-                rebuildUI();
-            }
-        }
+    document.body.appendChild(ov); document.body.appendChild(pop);
+    document.getElementById("lc-d-ok").addEventListener("click", () => {
+        if (res.result) { const p = extension_settings[extensionName].characters[target]; if (p) { new PregnancyManager(p).start(res.parts?.find(x => x !== target)||"?", 1); saveSettingsDebounced(); rebuildUI(); } }
         ov.remove(); pop.remove();
     });
-
-    document.getElementById("lc-dice-reroll").addEventListener("click", () => {
-        ov.remove(); pop.remove();
-        const nr = IntimacyManager.roll(target, {
-            participants: result.participants,
-            type: result.actType,
-            ejaculation: result.ejaculation,
-            hasContraception: false,
-            noContraception: result.contraception === "нет (в сцене)",
-        });
-        showDicePopup(nr, target, isAuto);
-    });
-
-    document.getElementById("lc-dice-cancel").addEventListener("click", () => { ov.remove(); pop.remove(); });
+    document.getElementById("lc-d-re").addEventListener("click", () => { ov.remove(); pop.remove(); const nr = IntimacyManager.roll(target, { parts: res.parts, type: res.type, ejac: res.ejac, contra: false, noCon: res.contra === "нет", auto: isAuto }); showDicePopup(nr, target, isAuto); });
+    document.getElementById("lc-d-no").addEventListener("click", () => { ov.remove(); pop.remove(); });
     ov.addEventListener("click", () => { ov.remove(); pop.remove(); });
 }
 
 // ==========================================
-// JSON HELPERS
+// HTML GENERATION, BIND, RENDER, INIT
+// (abbreviated — same structure as v0.4.0
+//  but with heat/rut tab added)
 // ==========================================
 
-function downloadJSON(data, fn) {
-    const b = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const u = URL.createObjectURL(b);
-    const a = document.createElement("a"); a.href = u; a.download = fn;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u);
-}
+function downloadJSON(d, fn) { const b = new Blob([JSON.stringify(d,null,2)],{type:"application/json"}); const u = URL.createObjectURL(b); const a = document.createElement("a"); a.href=u; a.download=fn; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); }
+function uploadJSON(cb) { const i = document.createElement("input"); i.type="file"; i.accept=".json"; i.addEventListener("change",e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = ev => { try { cb(JSON.parse(ev.target.result)); } catch(er) { toastr.error("JSON: "+er.message); } }; r.readAsText(f); }); i.click(); }
 
-function uploadJSON(cb) {
-    const inp = document.createElement("input"); inp.type = "file"; inp.accept = ".json";
-    inp.addEventListener("change", e => {
-        const f = e.target.files[0]; if (!f) return;
-        const rd = new FileReader();
-        rd.onload = ev => { try { cb(JSON.parse(ev.target.result)); } catch (err) { toastr.error("JSON ошибка: " + err.message); } };
-        rd.readAsText(f);
-    });
-    inp.click();
-}
-
-// ==========================================
-// HTML GENERATION (collapsible panel)
-// ==========================================
-
-function buildCharSelect(id, extraCls) {
-    const names = Object.keys(extension_settings[extensionName].characters);
-    const opts = names.map(n => '<option value="' + n + '">' + n + '</option>').join("");
-    return '<select id="' + id + '" class="lc-select ' + (extraCls || "lc-char-select") + '">' + opts + '</select>';
+function buildSel(id) {
+    const n = Object.keys(extension_settings[extensionName].characters);
+    return '<select id="'+id+'" class="lc-select lc-char-select">' + n.map(x => '<option value="'+x+'">'+x+'</option>').join("") + '</select>';
 }
 
 function generateHTML() {
     const s = extension_settings[extensionName];
-    const collapsed = s.panelCollapsed ? ' collapsed' : '';
-
-    return '<div class="lifecycle-panel' + collapsed + '" id="lifecycle-panel">' +
-
-        // HEADER (clickable to collapse)
-        '<div class="lifecycle-header" id="lifecycle-header-toggle">' +
-            '<div class="lifecycle-header-title">' +
-                '<span class="lc-collapse-arrow">' + (s.panelCollapsed ? '▶' : '▼') + '</span>' +
-                '<h3>LifeCycle</h3><span class="lc-version">v0.4.0</span>' +
-            '</div>' +
-            '<div class="lifecycle-header-actions">' +
-                '<label class="lc-switch" onclick="event.stopPropagation()"><input type="checkbox" id="lc-enabled" ' + (s.enabled ? "checked" : "") + '><span class="lc-switch-slider"></span></label>' +
-            '</div>' +
-        '</div>' +
-
-        // COLLAPSIBLE BODY
+    return '<div id="lifecycle-panel" class="lifecycle-panel' + (s.panelCollapsed ? ' collapsed' : '') + '">' +
+        '<div class="lifecycle-header" id="lifecycle-header-toggle"><div class="lifecycle-header-title"><span class="lc-collapse-arrow">' + (s.panelCollapsed ? '▶' : '▼') + '</span><h3>LifeCycle</h3><span class="lc-version">v0.5</span></div><div class="lifecycle-header-actions"><label class="lc-switch"><input type="checkbox" id="lc-enabled" ' + (s.enabled ? 'checked' : '') + '><span class="lc-switch-slider"></span></label></div></div>' +
         '<div class="lifecycle-body" id="lifecycle-body">' +
-
-            // DASHBOARD
-            '<div class="lc-dashboard" id="lc-dashboard">' +
-                '<div class="lc-dashboard-date" id="lc-dashboard-date"></div>' +
-                '<div id="lc-dashboard-items"></div>' +
-            '</div>' +
-
-            // TABS
+            '<div class="lc-dashboard"><div id="lc-dashboard-date" class="lc-dashboard-date"></div><div id="lc-dashboard-items"></div></div>' +
             '<div class="lifecycle-tabs">' +
                 '<button class="lifecycle-tab active" data-tab="chars"><span class="tab-icon">👥</span>Перс.</button>' +
                 '<button class="lifecycle-tab" data-tab="cycle"><span class="tab-icon">🔴</span>Цикл</button>' +
-                '<button class="lifecycle-tab" data-tab="intim"><span class="tab-icon">🔥</span>Интим</button>' +
+                '<button class="lifecycle-tab" data-tab="heatrut"><span class="tab-icon">🔥</span>Течка</button>' +
+                '<button class="lifecycle-tab" data-tab="intim"><span class="tab-icon">💕</span>Интим</button>' +
                 '<button class="lifecycle-tab" data-tab="preg"><span class="tab-icon">🤰</span>Берем.</button>' +
                 '<button class="lifecycle-tab" data-tab="labor"><span class="tab-icon">🏥</span>Роды</button>' +
-                '<button class="lifecycle-tab" data-tab="babies"><span class="tab-icon">👶</span>Малыши</button>' +
+                '<button class="lifecycle-tab" data-tab="babies"><span class="tab-icon">👶</span>Дети</button>' +
                 '<button class="lifecycle-tab" data-tab="settings"><span class="tab-icon">⚙️</span>Настр.</button>' +
             '</div>' +
 
-            // TAB: CHARACTERS
+            // CHARACTERS TAB
             '<div class="lifecycle-tab-content active" data-tab="chars">' +
-                '<div class="lc-btn-group" style="margin-bottom:8px">' +
-                    '<button id="lc-sync-chars" class="lc-btn lc-btn-primary">🔄 Синхронизация</button>' +
-                    '<button id="lc-add-manual" class="lc-btn">+ Вручную</button>' +
-                '</div>' +
+                '<div class="lc-btn-group" style="margin-bottom:8px"><button id="lc-sync-chars" class="lc-btn lc-btn-primary">🔄 Синхронизация</button><button id="lc-add-manual" class="lc-btn">+ Вручную</button><button id="lc-reparse-chat" class="lc-btn">📖 Перечитать чат</button></div>' +
                 '<div id="lc-char-list"></div>' +
                 '<div id="lc-char-editor" class="lc-editor hidden">' +
-                    '<div class="lc-editor-title" id="lc-editor-title">Редактирование</div>' +
+                    '<div id="lc-editor-title" class="lc-editor-title"></div>' +
                     '<div class="lc-editor-grid">' +
-                        '<div class="lc-editor-field"><label>Биол. пол</label><select id="lc-edit-bio-sex" class="lc-select"><option value="F">Женский</option><option value="M">Мужской</option></select></div>' +
-                        '<div class="lc-editor-field"><label>Втор. пол (AU)</label><select id="lc-edit-sec-sex" class="lc-select"><option value="">Нет</option><option value="alpha">Альфа</option><option value="beta">Бета</option><option value="omega">Омега</option></select></div>' +
-                        '<div class="lc-editor-field"><label>Раса</label><select id="lc-edit-race" class="lc-select"><option value="human">Человек</option><option value="elf">Эльф</option><option value="dwarf">Дварф</option><option value="orc">Орк</option><option value="halfling">Полурослик</option><option value="demon">Демон</option><option value="vampire">Вампир</option><option value="werewolf">Оборотень</option><option value="dragon">Дракон</option><option value="neko">Неко</option><option value="kitsune">Кицунэ</option></select></div>' +
-                        '<div class="lc-editor-field"><label>Контрацепция</label><select id="lc-edit-contra" class="lc-select"><option value="none">Нет</option><option value="condom">Презерватив</option><option value="pill">ОК</option><option value="iud">ВМС</option><option value="patch">Пластырь</option><option value="injection">Инъекция</option><option value="withdrawal">Прерванный</option></select></div>' +
-                        '<div class="lc-editor-field"><label>Сложность берем.</label><select id="lc-edit-difficulty" class="lc-select"><option value="easy">Лёгкая</option><option value="normal">Нормальная</option><option value="hard">Тяжёлая</option><option value="complicated">С осложнениями</option></select></div>' +
-                        '<div class="lc-editor-field"><label>Цвет глаз</label><input type="text" id="lc-edit-eyes" class="lc-input" placeholder="карие"></div>' +
-                        '<div class="lc-editor-field"><label>Цвет волос</label><input type="text" id="lc-edit-hair" class="lc-input" placeholder="тёмные"></div>' +
-                        '<div class="lc-editor-field full-width"><label class="lc-checkbox"><input type="checkbox" id="lc-edit-enabled" checked><span>Трекинг включён</span></label></div>' +
-                        '<div class="lc-editor-field full-width" style="margin-top:6px"><h5 style="margin:0 0 4px;font-size:11px">Настройки цикла</h5></div>' +
-                        '<div class="lc-editor-field full-width"><label class="lc-checkbox"><input type="checkbox" id="lc-edit-cycle-on"><span>Цикл включён</span></label></div>' +
+                        '<div class="lc-editor-field"><label>Биол. пол</label><select id="lc-edit-bio-sex" class="lc-select"><option value="F">F</option><option value="M">M</option></select></div>' +
+                        '<div class="lc-editor-field"><label>Вторичный пол</label><select id="lc-edit-sec-sex" class="lc-select"><option value="">нет</option><option value="alpha">Alpha</option><option value="beta">Beta</option><option value="omega">Omega</option></select></div>' +
+                        '<div class="lc-editor-field"><label>Раса</label><input type="text" id="lc-edit-race" class="lc-input" placeholder="human"></div>' +
+                        '<div class="lc-editor-field"><label>Контрацепция</label><select id="lc-edit-contra" class="lc-select"><option value="none">нет</option><option value="condom">презерватив</option><option value="pill">таблетки</option><option value="iud">ВМС</option><option value="withdrawal">ППА</option></select></div>' +
+                        '<div class="lc-editor-field"><label>Цвет глаз</label><input type="text" id="lc-edit-eyes" class="lc-input"></div>' +
+                        '<div class="lc-editor-field"><label>Цвет волос</label><input type="text" id="lc-edit-hair" class="lc-input"></div>' +
+                        '<div class="lc-editor-field"><label>Сложность берем.</label><select id="lc-edit-diff" class="lc-select"><option value="easy">лёгкая</option><option value="normal">обычная</option><option value="severe">тяжёлая</option></select></div>' +
+                        '<div class="lc-editor-field"><label>Активен</label><input type="checkbox" id="lc-edit-enabled" checked></div>' +
+                        '<div class="lc-editor-field"><label>Цикл вкл.</label><input type="checkbox" id="lc-edit-cycle-on" checked></div>' +
                         '<div class="lc-editor-field"><label>Длина цикла</label><input type="number" id="lc-edit-cycle-len" class="lc-input" min="21" max="45" value="28"></div>' +
-                        '<div class="lc-editor-field"><label>Менструация (дн.)</label><input type="number" id="lc-edit-mens-dur" class="lc-input" min="2" max="8" value="5"></div>' +
+                        '<div class="lc-editor-field"><label>Дни менстр.</label><input type="number" id="lc-edit-mens-dur" class="lc-input" min="2" max="8" value="5"></div>' +
                         '<div class="lc-editor-field"><label>Нерегулярность</label><input type="number" id="lc-edit-irreg" class="lc-input" min="0" max="10" value="2"></div>' +
-                        '<div class="lc-editor-field"><label>Симптомы</label><select id="lc-edit-symptom-int" class="lc-select"><option value="mild">Лёгкие</option><option value="moderate">Умеренные</option><option value="severe">Тяжёлые</option></select></div>' +
                     '</div>' +
-                    '<div class="lc-editor-actions">' +
-                        '<button id="lc-editor-save" class="lc-btn lc-btn-success">Сохранить</button>' +
-                        '<button id="lc-editor-cancel" class="lc-btn">Отмена</button>' +
-                    '</div>' +
+                    '<div class="lc-editor-actions"><button id="lc-editor-save" class="lc-btn lc-btn-success">💾 Сохранить</button><button id="lc-editor-cancel" class="lc-btn">Отмена</button></div>' +
                 '</div>' +
             '</div>' +
 
-            // TAB: CYCLE
-            '<div class="lifecycle-tab-content" data-tab="cycle">' +
-                '<div class="lc-row" style="margin-bottom:8px"><label>Персонаж:</label>' + buildCharSelect("lc-cycle-char", "lc-char-select") + '</div>' +
-                '<div id="lc-cycle-panel"></div>' +
-            '</div>' +
+            // CYCLE TAB
+            '<div class="lifecycle-tab-content" data-tab="cycle">' + buildSel("lc-cycle-char") + '<div id="lc-cycle-panel"></div></div>' +
 
-            // TAB: INTIMACY
+            // HEAT/RUT TAB (NEW!)
+            '<div class="lifecycle-tab-content" data-tab="heatrut">' + buildSel("lc-hr-char") + '<div id="lc-hr-panel"></div></div>' +
+
+            // INTIMACY TAB
             '<div class="lifecycle-tab-content" data-tab="intim">' +
-                '<div class="lc-section">' +
-                    '<div class="lc-section-title"><h4>Авто-определение</h4></div>' +
-                    '<label class="lc-checkbox"><input type="checkbox" id="lc-auto-detect-intim" ' + (s.autoDetectIntimacy ? "checked" : "") + '><span>Автоматически определять секс-сцены</span></label>' +
-                    '<label class="lc-checkbox"><input type="checkbox" id="lc-auto-roll" ' + (s.autoRollOnSex ? "checked" : "") + '><span>Автоматически кидать кубик</span></label>' +
-                '</div>' +
-                '<div class="lc-section">' +
-                    '<div class="lc-section-title"><h4>Ручной бросок</h4></div>' +
-                    '<div class="lc-row"><label>Цель (берем.):</label>' + buildCharSelect("lc-intim-target", "lc-char-select") + '</div>' +
-                    '<div class="lc-row"><label>Партнёр:</label>' + buildCharSelect("lc-intim-partner", "lc-char-select") + '</div>' +
-                    '<div class="lc-row"><label>Тип:</label><select id="lc-intim-type" class="lc-select"><option value="vaginal">Вагинальный</option><option value="anal">Анальный</option><option value="oral">Оральный</option></select></div>' +
-                    '<div class="lc-row"><label>Эякуляция:</label><select id="lc-intim-ejac" class="lc-select"><option value="inside">Внутрь</option><option value="outside">Наружу</option><option value="na">Н/П</option></select></div>' +
-                    '<div class="lc-btn-group" style="margin-top:8px">' +
-                        '<button id="lc-intim-log-btn" class="lc-btn">📝 Записать</button>' +
-                        '<button id="lc-intim-roll-btn" class="lc-btn lc-btn-primary">🎲 Бросить кубик</button>' +
-                    '</div>' +
-                '</div>' +
+                '<div class="lc-section"><div class="lc-row">' + buildSel("lc-intim-target") + buildSel("lc-intim-partner") + '</div>' +
+                '<div class="lc-row"><select id="lc-intim-type" class="lc-select"><option value="vaginal">Вагинальный</option><option value="anal">Анальный</option><option value="oral">Оральный</option></select>' +
+                '<select id="lc-intim-ejac" class="lc-select"><option value="inside">Внутрь</option><option value="outside">Снаружи</option></select></div>' +
+                '<div class="lc-btn-group"><button id="lc-intim-log-btn" class="lc-btn">📝 Записать</button><button id="lc-intim-roll-btn" class="lc-btn lc-btn-primary">🎲 Бросок</button></div></div>' +
                 '<div class="lc-section"><div class="lc-section-title"><h4>Лог бросков</h4></div><div id="lc-dice-log" class="lc-scroll"></div></div>' +
                 '<div class="lc-section"><div class="lc-section-title"><h4>Лог актов</h4></div><div id="lc-intim-log-list" class="lc-scroll"></div></div>' +
             '</div>' +
 
-            // TAB: PREGNANCY
-            '<div class="lifecycle-tab-content" data-tab="preg">' +
-                '<div class="lc-row" style="margin-bottom:8px"><label>Персонаж:</label>' + buildCharSelect("lc-preg-char", "lc-char-select") + '</div>' +
-                '<div id="lc-preg-panel"></div>' +
-                '<div class="lc-btn-group" style="margin-top:8px">' +
-                    '<button id="lc-preg-advance" class="lc-btn">+1 неделя</button>' +
-                    '<button id="lc-preg-set-week" class="lc-btn">Уст. неделю</button>' +
-                    '<button id="lc-preg-to-labor" class="lc-btn lc-btn-primary">Начать роды</button>' +
-                    '<button id="lc-preg-end" class="lc-btn lc-btn-danger">Прервать</button>' +
-                '</div>' +
+            // PREGNANCY TAB
+            '<div class="lifecycle-tab-content" data-tab="preg">' + buildSel("lc-preg-char") + '<div id="lc-preg-panel"></div>' +
+                '<div class="lc-btn-group" style="margin-top:6px"><button id="lc-preg-advance" class="lc-btn">+1 нед.</button><button id="lc-preg-set-week" class="lc-btn">Уст. нед.</button><button id="lc-preg-to-labor" class="lc-btn lc-btn-danger">→ Роды</button><button id="lc-preg-end" class="lc-btn lc-btn-danger">Прервать</button></div>' +
             '</div>' +
 
-            // TAB: LABOR
-            '<div class="lifecycle-tab-content" data-tab="labor">' +
-                '<div class="lc-row" style="margin-bottom:8px"><label>Персонаж:</label>' + buildCharSelect("lc-labor-char", "lc-char-select") + '</div>' +
-                '<div id="lc-labor-panel"></div>' +
-                '<div class="lc-btn-group" style="margin-top:8px">' +
-                    '<button id="lc-labor-advance" class="lc-btn lc-btn-primary">След. стадия</button>' +
-                    '<button id="lc-labor-deliver" class="lc-btn lc-btn-success">Родить</button>' +
-                    '<button id="lc-labor-set-dil" class="lc-btn">Уст. раскрытие</button>' +
-                    '<button id="lc-labor-end" class="lc-btn lc-btn-danger">Завершить</button>' +
-                '</div>' +
+            // LABOR TAB
+            '<div class="lifecycle-tab-content" data-tab="labor">' + buildSel("lc-labor-char") + '<div id="lc-labor-panel"></div>' +
+                '<div class="lc-btn-group" style="margin-top:6px"><button id="lc-labor-advance" class="lc-btn">→ След. стадия</button><button id="lc-labor-deliver" class="lc-btn lc-btn-success">Родить</button><button id="lc-labor-end" class="lc-btn lc-btn-danger">Завершить</button></div>' +
             '</div>' +
 
-            // TAB: BABIES
-            '<div class="lifecycle-tab-content" data-tab="babies">' +
-                '<div class="lc-row" style="margin-bottom:8px"><label>Родитель:</label>' + buildCharSelect("lc-baby-parent", "lc-char-select") + '</div>' +
-                '<div id="lc-baby-list"></div>' +
-            '</div>' +
+            // BABIES TAB
+            '<div class="lifecycle-tab-content" data-tab="babies">' + buildSel("lc-baby-parent") + '<div id="lc-baby-list"></div></div>' +
 
-            // TAB: SETTINGS
+            // SETTINGS TAB (same as v0.4.0 but with heat/rut cycle settings)
             '<div class="lifecycle-tab-content" data-tab="settings">' +
-
-                '<div class="lc-section">' +
-                    '<div class="lc-section-title"><h4>Автоматика</h4></div>' +
-                    '<label class="lc-checkbox"><input type="checkbox" id="lc-auto-sync" ' + (s.autoSyncCharacters ? "checked" : "") + '><span>Авто-синхронизация персонажей</span></label>' +
-                    '<label class="lc-checkbox"><input type="checkbox" id="lc-auto-parse-info" ' + (s.autoParseCharInfo ? "checked" : "") + '><span>Авто-определение пола/расы/внешности из карточки</span></label>' +
-                    '<label class="lc-checkbox"><input type="checkbox" id="lc-auto-time" ' + (s.autoTimeProgress ? "checked" : "") + '><span>Авто-парсинг времени</span></label>' +
-                    '<label class="lc-checkbox"><input type="checkbox" id="lc-time-confirm" ' + (s.timeParserConfirmation ? "checked" : "") + '><span>Подтверждение сдвига времени</span></label>' +
-                    '<label class="lc-checkbox"><input type="checkbox" id="lc-show-widget" ' + (s.showStatusWidget ? "checked" : "") + '><span>Окно статуса после каждого ответа</span></label>' +
-                    '<div class="lc-row"><label>Чувствительность таймера:</label><select id="lc-time-sens" class="lc-select">' +
-                        '<option value="low"' + (s.timeParserSensitivity === "low" ? " selected" : "") + '>Низкая</option>' +
-                        '<option value="medium"' + (s.timeParserSensitivity === "medium" ? " selected" : "") + '>Средняя</option>' +
-                        '<option value="high"' + (s.timeParserSensitivity === "high" ? " selected" : "") + '>Высокая</option>' +
-                    '</select></div>' +
+                '<div class="lc-section"><div class="lc-section-title"><h4>Автоматизация</h4></div>' +
+                    '<label class="lc-checkbox"><input type="checkbox" id="lc-auto-sync" ' + (s.autoSyncCharacters?'checked':'') + '><span>Авто-синхронизация персонажей</span></label>' +
+                    '<label class="lc-checkbox"><input type="checkbox" id="lc-auto-parse" ' + (s.autoParseCharInfo?'checked':'') + '><span>Авто-парсинг инфы из карточек</span></label>' +
+                    '<label class="lc-checkbox"><input type="checkbox" id="lc-parse-chat" ' + (s.parseFullChat?'checked':'') + '><span>Парсить историю чата (дети, берем., течка)</span></label>' +
+                    '<label class="lc-checkbox"><input type="checkbox" id="lc-auto-detect" ' + (s.autoDetectIntimacy?'checked':'') + '><span>Авто-детекция секс-сцен</span></label>' +
+                    '<label class="lc-checkbox"><input type="checkbox" id="lc-auto-roll" ' + (s.autoRollOnSex?'checked':'') + '><span>Авто-бросок при незащищённом сексе</span></label>' +
+                    '<label class="lc-checkbox"><input type="checkbox" id="lc-show-widget" ' + (s.showStatusWidget?'checked':'') + '><span>Виджет после каждого ответа</span></label>' +
+                    '<label class="lc-checkbox"><input type="checkbox" id="lc-auto-time" ' + (s.autoTimeProgress?'checked':'') + '><span>Авто-время из текста</span></label>' +
+                    '<label class="lc-checkbox"><input type="checkbox" id="lc-time-confirm" ' + (s.timeParserConfirmation?'checked':'') + '><span>Подтверждение сдвига времени</span></label>' +
                 '</div>' +
-
-                '<div class="lc-section">' +
-                    '<div class="lc-section-title"><h4>Дата мира</h4></div>' +
-                    '<div class="lc-row">' +
-                        '<input type="number" id="lc-date-y" class="lc-input" style="width:60px" value="' + s.worldDate.year + '">' +
-                        '<span>/</span>' +
-                        '<input type="number" id="lc-date-m" class="lc-input" style="width:40px" min="1" max="12" value="' + s.worldDate.month + '">' +
-                        '<span>/</span>' +
-                        '<input type="number" id="lc-date-d" class="lc-input" style="width:40px" min="1" max="31" value="' + s.worldDate.day + '">' +
-                        '<input type="number" id="lc-date-h" class="lc-input" style="width:40px" min="0" max="23" value="' + s.worldDate.hour + '"><span>ч</span>' +
-                    '</div>' +
-                    '<div class="lc-btn-group" style="margin-top:6px">' +
-                        '<button id="lc-date-apply" class="lc-btn lc-btn-primary">Применить</button>' +
-                        '<button id="lc-date-plus1" class="lc-btn">+1 день</button>' +
-                        '<button id="lc-date-plus7" class="lc-btn">+7 дней</button>' +
-                    '</div>' +
-                    '<label class="lc-checkbox" style="margin-top:6px"><input type="checkbox" id="lc-date-frozen" ' + (s.worldDate.frozen ? "checked" : "") + '><span>Заморозить время</span></label>' +
+                '<div class="lc-section"><div class="lc-section-title"><h4>Дата мира</h4></div>' +
+                    '<div class="lc-row"><input type="number" id="lc-date-y" class="lc-input" style="width:70px" value="'+s.worldDate.year+'"><input type="number" id="lc-date-m" class="lc-input" style="width:50px" value="'+s.worldDate.month+'"><input type="number" id="lc-date-d" class="lc-input" style="width:50px" value="'+s.worldDate.day+'"><input type="number" id="lc-date-h" class="lc-input" style="width:50px" value="'+s.worldDate.hour+'"></div>' +
+                    '<div class="lc-btn-group"><button id="lc-date-apply" class="lc-btn">Применить</button><button id="lc-date-plus1" class="lc-btn">+1д</button><button id="lc-date-plus7" class="lc-btn">+7д</button></div>' +
+                    '<label class="lc-checkbox"><input type="checkbox" id="lc-date-frozen" ' + (s.worldDate.frozen?'checked':'') + '><span>Заморозить время</span></label>' +
                 '</div>' +
-
-                '<div class="lc-section">' +
-                    '<div class="lc-section-title"><h4>Модули</h4></div>' +
-                    '<label class="lc-checkbox"><input type="checkbox" id="lc-mod-cycle" ' + (s.modules.cycle ? "checked" : "") + '><span>Цикл</span></label>' +
-                    '<label class="lc-checkbox"><input type="checkbox" id="lc-mod-preg" ' + (s.modules.pregnancy ? "checked" : "") + '><span>Беременность</span></label>' +
-                    '<label class="lc-checkbox"><input type="checkbox" id="lc-mod-labor" ' + (s.modules.labor ? "checked" : "") + '><span>Роды</span></label>' +
-                    '<label class="lc-checkbox"><input type="checkbox" id="lc-mod-baby" ' + (s.modules.baby ? "checked" : "") + '><span>Малыши</span></label>' +
-                    '<label class="lc-checkbox"><input type="checkbox" id="lc-mod-intim" ' + (s.modules.intimacy ? "checked" : "") + '><span>Интим-трекер</span></label>' +
-                    '<label class="lc-checkbox"><input type="checkbox" id="lc-mod-au" ' + (s.modules.auOverlay ? "checked" : "") + '><span>AU-оверлей</span></label>' +
+                '<div class="lc-section"><div class="lc-section-title"><h4>Модули</h4></div>' +
+                    '<label class="lc-checkbox"><input type="checkbox" id="lc-mod-cycle" ' + (s.modules.cycle?'checked':'') + '><span>Менструальный цикл</span></label>' +
+                    '<label class="lc-checkbox"><input type="checkbox" id="lc-mod-preg" ' + (s.modules.pregnancy?'checked':'') + '><span>Беременность</span></label>' +
+                    '<label class="lc-checkbox"><input type="checkbox" id="lc-mod-labor" ' + (s.modules.labor?'checked':'') + '><span>Роды</span></label>' +
+                    '<label class="lc-checkbox"><input type="checkbox" id="lc-mod-baby" ' + (s.modules.baby?'checked':'') + '><span>Дети</span></label>' +
+                    '<label class="lc-checkbox"><input type="checkbox" id="lc-mod-intim" ' + (s.modules.intimacy?'checked':'') + '><span>Интим</span></label>' +
+                    '<label class="lc-checkbox"><input type="checkbox" id="lc-mod-au" ' + (s.modules.auOverlay?'checked':'') + '><span>AU (Омегаверс/Фэнтези/Sci-Fi)</span></label>' +
                 '</div>' +
-
-                '<div class="lc-section">' +
-                    '<div class="lc-section-title"><h4>Инъекция в промпт</h4></div>' +
-                    '<label class="lc-checkbox"><input type="checkbox" id="lc-prompt-on" ' + (s.promptInjectionEnabled ? "checked" : "") + '><span>Включена</span></label>' +
-                    '<div class="lc-row"><label>Позиция:</label><select id="lc-prompt-pos" class="lc-select">' +
-                        '<option value="system"' + (s.promptInjectionPosition === "system" ? " selected" : "") + '>System</option>' +
-                        '<option value="authornote"' + (s.promptInjectionPosition === "authornote" ? " selected" : "") + '>Author Note</option>' +
-                        '<option value="endofchat"' + (s.promptInjectionPosition === "endofchat" ? " selected" : "") + '>End of Chat</option>' +
-                    '</select></div>' +
-                    '<div class="lc-row"><label>Детальность:</label><select id="lc-prompt-detail" class="lc-select">' +
-                        '<option value="low"' + (s.promptInjectionDetail === "low" ? " selected" : "") + '>Мин.</option>' +
-                        '<option value="medium"' + (s.promptInjectionDetail === "medium" ? " selected" : "") + '>Средняя</option>' +
-                        '<option value="high"' + (s.promptInjectionDetail === "high" ? " selected" : "") + '>Подробная</option>' +
-                    '</select></div>' +
+                '<div class="lc-section"><div class="lc-section-title"><h4>Инъекция в промпт</h4></div>' +
+                    '<label class="lc-checkbox"><input type="checkbox" id="lc-prompt-on" ' + (s.promptInjectionEnabled?'checked':'') + '><span>Включить</span></label>' +
+                    '<div class="lc-row"><label>Позиция:</label><select id="lc-prompt-pos" class="lc-select"><option value="system"' + (s.promptInjectionPosition==="system"?" selected":"") + '>System</option><option value="authornote"' + (s.promptInjectionPosition==="authornote"?" selected":"") + '>Author Note</option><option value="endofchat"' + (s.promptInjectionPosition==="endofchat"?" selected":"") + '>End of Chat</option></select></div>' +
+                    '<div class="lc-row"><label>Детальность:</label><select id="lc-prompt-detail" class="lc-select"><option value="low"' + (s.promptInjectionDetail==="low"?" selected":"") + '>Низкая</option><option value="medium"' + (s.promptInjectionDetail==="medium"?" selected":"") + '>Средняя</option><option value="high"' + (s.promptInjectionDetail==="high"?" selected":"") + '>Высокая</option></select></div>' +
                 '</div>' +
-
-                '<div class="lc-section">' +
-                    '<div class="lc-section-title"><h4>AU-пресет</h4></div>' +
-                    '<div class="lc-row"><label>Пресет:</label><select id="lc-au-preset" class="lc-select">' +
-                        '<option value="realism"' + (s.auPreset === "realism" ? " selected" : "") + '>Реализм</option>' +
-                        '<option value="omegaverse"' + (s.auPreset === "omegaverse" ? " selected" : "") + '>Омегаверс</option>' +
-                        '<option value="fantasy"' + (s.auPreset === "fantasy" ? " selected" : "") + '>Фэнтези</option>' +
-                                                '<option value="scifi"' + (s.auPreset === "scifi" ? " selected" : "") + '>Sci-Fi</option>' +
-                    '</select></div>' +
+                '<div class="lc-section"><div class="lc-section-title"><h4>AU Пресет</h4></div>' +
+                    '<div class="lc-row"><select id="lc-au-preset" class="lc-select"><option value="realism"' + (s.auPreset==="realism"?" selected":"") + '>Реализм</option><option value="omegaverse"' + (s.auPreset==="omegaverse"?" selected":"") + '>Омегаверс</option><option value="fantasy"' + (s.auPreset==="fantasy"?" selected":"") + '>Фэнтези</option><option value="scifi"' + (s.auPreset==="scifi"?" selected":"") + '>Sci-Fi</option></select></div>' +
+                    '<div id="lc-au-panel"></div>' +
                 '</div>' +
-
-                // AU: OMEGAVERSE SETTINGS
-                '<div class="lc-section lc-au-omegaverse-section" style="' + (s.auPreset === "omegaverse" && s.modules.auOverlay ? "" : "display:none") + '">' +
-                    '<div class="lc-section-title"><h4>Омегаверс</h4></div>' +
-                    '<div class="lc-editor-grid">' +
-                        '<div class="lc-editor-field"><label>Цикл течки (дн.)</label><input type="number" id="lc-au-heat-cycle" class="lc-input" min="14" max="90" value="' + s.auSettings.omegaverse.heatCycleLength + '"></div>' +
-                        '<div class="lc-editor-field"><label>Длит. течки (дн.)</label><input type="number" id="lc-au-heat-dur" class="lc-input" min="1" max="14" value="' + s.auSettings.omegaverse.heatDuration + '"></div>' +
-                        '<div class="lc-editor-field"><label>Бонус ферт. в течку</label><input type="number" id="lc-au-heat-fert" class="lc-input" min="0" max="1" step="0.05" value="' + s.auSettings.omegaverse.heatFertilityBonus + '"></div>' +
-                        '<div class="lc-editor-field"><label>Длит. гона (дн.)</label><input type="number" id="lc-au-rut-dur" class="lc-input" min="1" max="14" value="' + s.auSettings.omegaverse.rutDuration + '"></div>' +
-                        '<div class="lc-editor-field"><label>Мин. длит. узла (мин.)</label><input type="number" id="lc-au-knot-dur" class="lc-input" min="5" max="120" value="' + s.auSettings.omegaverse.knotDurationMin + '"></div>' +
-                        '<div class="lc-editor-field"><label>Недель берем.</label><input type="number" id="lc-au-preg-weeks" class="lc-input" min="20" max="50" value="' + s.auSettings.omegaverse.pregnancyWeeks + '"></div>' +
-                    '</div>' +
-                    '<label class="lc-checkbox"><input type="checkbox" id="lc-au-knot" ' + (s.auSettings.omegaverse.knotEnabled ? "checked" : "") + '><span>Узел (кнот)</span></label>' +
-                    '<label class="lc-checkbox"><input type="checkbox" id="lc-au-bond" ' + (s.auSettings.omegaverse.bondingEnabled ? "checked" : "") + '><span>Связь (бондинг)</span></label>' +
-                    '<label class="lc-checkbox"><input type="checkbox" id="lc-au-suppress" ' + (s.auSettings.omegaverse.suppressantsAvailable ? "checked" : "") + '><span>Супрессанты</span></label>' +
-                    '<label class="lc-checkbox"><input type="checkbox" id="lc-au-mpreg" ' + (s.auSettings.omegaverse.maleOmegaPregnancy ? "checked" : "") + '><span>Мужская омега-беременность</span></label>' +
-                '</div>' +
-
-                // AU: FANTASY SETTINGS
-                '<div class="lc-section lc-au-fantasy-section" style="' + (s.auPreset === "fantasy" && s.modules.auOverlay ? "" : "display:none") + '">' +
-                    '<div class="lc-section-title"><h4>Фэнтези</h4></div>' +
-                    '<div class="lc-editor-grid">' +
-                        '<div class="lc-editor-field"><label>Человек (нед.)</label><input type="number" id="lc-au-f-human" class="lc-input" value="' + s.auSettings.fantasy.pregnancyByRace.human + '"></div>' +
-                        '<div class="lc-editor-field"><label>Эльф (нед.)</label><input type="number" id="lc-au-f-elf" class="lc-input" value="' + s.auSettings.fantasy.pregnancyByRace.elf + '"></div>' +
-                        '<div class="lc-editor-field"><label>Дварф (нед.)</label><input type="number" id="lc-au-f-dwarf" class="lc-input" value="' + s.auSettings.fantasy.pregnancyByRace.dwarf + '"></div>' +
-                        '<div class="lc-editor-field"><label>Орк (нед.)</label><input type="number" id="lc-au-f-orc" class="lc-input" value="' + s.auSettings.fantasy.pregnancyByRace.orc + '"></div>' +
-                        '<div class="lc-editor-field"><label>Полурослик (нед.)</label><input type="number" id="lc-au-f-halfling" class="lc-input" value="' + s.auSettings.fantasy.pregnancyByRace.halfling + '"></div>' +
-                    '</div>' +
-                    '<label class="lc-checkbox"><input type="checkbox" id="lc-au-f-features" ' + (s.auSettings.fantasy.nonHumanFeatures ? "checked" : "") + '><span>Нечеловеческие черты у потомства</span></label>' +
-                    '<label class="lc-checkbox"><input type="checkbox" id="lc-au-f-magic" ' + (s.auSettings.fantasy.magicalComplications ? "checked" : "") + '><span>Магические осложнения</span></label>' +
-                '</div>' +
-
-                // AU: SCIFI SETTINGS
-                '<div class="lc-section lc-au-scifi-section" style="' + (s.auPreset === "scifi" && s.modules.auOverlay ? "" : "display:none") + '">' +
-                    '<div class="lc-section-title"><h4>Sci-Fi</h4></div>' +
-                    '<label class="lc-checkbox"><input type="checkbox" id="lc-au-s-artwomb" ' + (s.auSettings.scifi.artificialWomb ? "checked" : "") + '><span>Искусственная матка</span></label>' +
-                    '<label class="lc-checkbox"><input type="checkbox" id="lc-au-s-genetic" ' + (s.auSettings.scifi.geneticModification ? "checked" : "") + '><span>Генная модификация</span></label>' +
-                    '<label class="lc-checkbox"><input type="checkbox" id="lc-au-s-accel" ' + (s.auSettings.scifi.acceleratedGrowth ? "checked" : "") + '><span>Ускоренный рост</span></label>' +
-                '</div>' +
-
-                // IMPORT/EXPORT
-                '<div class="lc-section">' +
-                    '<div class="lc-section-title"><h4>Данные</h4></div>' +
-                    '<div class="lc-btn-group">' +
-                        '<button id="lc-export" class="lc-btn">📤 Экспорт</button>' +
-                        '<button id="lc-import" class="lc-btn">📥 Импорт</button>' +
-                        '<button id="lc-reset" class="lc-btn lc-btn-danger">🗑️ Сброс</button>' +
-                    '</div>' +
-                '</div>' +
-
-            '</div>' + // end tab settings
-
-        '</div>' + // end lifecycle-body
-    '</div>'; // end lifecycle-panel
+                '<div class="lc-section"><div class="lc-btn-group"><button id="lc-export" class="lc-btn">📤 Экспорт</button><button id="lc-import" class="lc-btn">📥 Импорт</button><button id="lc-reset" class="lc-btn lc-btn-danger">🗑️ Сброс</button></div></div>' +
+            '</div>' +
+        '</div></div>';
 }
 
 // ==========================================
-// RENDER FUNCTIONS
+// RENDER FUNCTIONS (cycle, preg, labor, baby, dashboard, heat/rut)
 // ==========================================
 
-function renderDashboard() {
+function rebuildUI() { renderDash(); renderCharList(); renderCycle(); renderHeatRut(); renderPreg(); renderLabor(); renderBabies(); renderDiceLog(); renderIntimLog(); updateSelects(); }
+
+function updateSelects() {
+    const n = Object.keys(extension_settings[extensionName].characters);
+    const o = n.map(x => '<option value="'+x+'">'+x+'</option>').join("");
+    document.querySelectorAll(".lc-char-select").forEach(s => { const v = s.value; s.innerHTML = o; if (n.includes(v)) s.value = v; });
+}
+
+function renderDash() {
     const s = extension_settings[extensionName];
-    const dateEl = document.getElementById("lc-dashboard-date");
-    const itemsEl = document.getElementById("lc-dashboard-items");
-    if (!dateEl || !itemsEl) return;
-
-    dateEl.textContent = "📅 " + formatDate(s.worldDate) + (s.worldDate.frozen ? " ❄️" : "");
-
-    let html = "";
+    const de = document.getElementById("lc-dashboard-date"), ie = document.getElementById("lc-dashboard-items");
+    if (!de || !ie) return;
+    de.textContent = "📅 " + fmt(s.worldDate) + (s.worldDate.frozen ? " ❄️" : "");
+    let h = "";
     Object.entries(s.characters).forEach(([name, p]) => {
         if (!p._enabled) return;
-
-        let badges = [];
-        if (s.modules.cycle && p.cycle?.enabled && !p.pregnancy?.active) {
-            const cm = new CycleManager(p);
-            const ph = cm.phase();
-            badges.push(cm.phaseEmoji(ph) + " " + cm.phaseLabel(ph));
-        }
-        if (s.modules.pregnancy && p.pregnancy?.active) {
-            badges.push("🤰 Нед." + p.pregnancy.week);
-        }
-        if (s.modules.labor && p.labor?.active) {
-            badges.push("🏥 Роды");
-        }
-        if (p.heat?.active) badges.push("🔥 Течка");
-        if (p.rut?.active) badges.push("💢 Гон");
-        if (p.babies?.length > 0) badges.push("👶×" + p.babies.length);
-
-        if (badges.length > 0) {
-            html += '<div class="lc-dash-item"><span class="lc-dash-name">' + name + '</span> ' + badges.join(' | ') + '</div>';
-        }
+        let parts = [];
+        if (s.modules.cycle && p.cycle?.enabled && !p.pregnancy?.active) { const cm = new CycleManager(p); parts.push(cm.emoji(cm.phase()) + cm.label(cm.phase())); }
+        if (s.modules.pregnancy && p.pregnancy?.active) parts.push("🤰 Нед." + p.pregnancy.week);
+        if (s.modules.labor && p.labor?.active) parts.push("🏥 " + L_LABELS[p.labor.stage]);
+        if (p.heat?.active) parts.push("🔥 Течка д." + p.heat.currentDay);
+        if (p.rut?.active) parts.push("💢 Гон д." + p.rut.currentDay);
+        if (p.babies?.length > 0) parts.push("👶×" + p.babies.length);
+        if (parts.length > 0) h += '<div class="lc-dash-item"><span class="lc-dash-name">' + name + '</span> ' + parts.join(' · ') + '</div>';
     });
-
-    itemsEl.innerHTML = html || '<div class="lc-dash-empty">Нет активных событий</div>';
+    ie.innerHTML = h || '<div class="lc-dash-empty">Нет событий</div>';
 }
 
 function renderCharList() {
-    const s = extension_settings[extensionName];
-    const el = document.getElementById("lc-char-list");
-    if (!el) return;
-
-    let html = "";
+    const s = extension_settings[extensionName], el = document.getElementById("lc-char-list"); if (!el) return;
+    let h = "";
     Object.entries(s.characters).forEach(([name, p]) => {
-        const sexLabel = p.bioSex === "F" ? "♀" : "♂";
-        const secLabel = p.secondarySex ? " (" + p.secondarySex + ")" : "";
-        const raceLabel = p.race || "human";
-        const enabledCls = p._enabled ? "" : " disabled";
-
-        html += '<div class="lc-char-card' + enabledCls + '" data-char="' + name + '">' +
-            '<div class="lc-char-card-header">' +
-                '<span class="lc-char-card-name">' + name + '</span>' +
-                '<span class="lc-char-card-info">' + sexLabel + secLabel + ' | ' + raceLabel + '</span>' +
-            '</div>' +
-            '<div class="lc-char-card-details">';
-
-        if (p.eyeColor) html += '<span class="lc-tag">👁️ ' + p.eyeColor + '</span>';
-        if (p.hairColor) html += '<span class="lc-tag">💇 ' + p.hairColor + '</span>';
-        if (p.contraception && p.contraception !== "none") html += '<span class="lc-tag">💊 ' + p.contraception + '</span>';
-        if (p._isUser) html += '<span class="lc-tag lc-tag-user">👤 User</span>';
-
-        html += '</div>' +
-            '<div class="lc-char-card-actions">' +
-                '<button class="lc-btn lc-btn-sm lc-edit-char" data-char="' + name + '">✏️</button>' +
-                '<button class="lc-btn lc-btn-sm lc-btn-danger lc-del-char" data-char="' + name + '">🗑️</button>' +
-            '</div>' +
-        '</div>';
+        const sx = p.bioSex === "F" ? "♀" : "♂"; const sec = p.secondarySex ? " · " + p.secondarySex : "";
+        h += '<div class="lc-char-card"><div class="lc-char-card-header"><span class="lc-char-card-name">' + name + '</span><span class="lc-char-card-info">' + sx + sec + ' · ' + (p.race||"human") + '</span></div>';
+        if (p.eyeColor || p.hairColor) h += '<div class="lc-char-card-details">' + (p.eyeColor ? '<span class="lc-tag">👁️'+p.eyeColor+'</span>' : '') + (p.hairColor ? '<span class="lc-tag">💇'+p.hairColor+'</span>' : '') + '</div>';
+        h += '<div class="lc-char-card-actions"><button class="lc-btn lc-btn-sm lc-edit-char" data-char="'+name+'">✏️</button><button class="lc-btn lc-btn-sm lc-btn-danger lc-del-char" data-char="'+name+'">🗑️</button></div></div>';
     });
-
-    el.innerHTML = html || '<div class="lc-empty">Персонажи не загружены. Нажмите «Синхронизация».</div>';
+    el.innerHTML = h || '<div class="lc-empty">Нажмите «Синхронизация»</div>';
 }
 
-function renderCyclePanel() {
-    const s = extension_settings[extensionName];
-    const sel = document.getElementById("lc-cycle-char");
-    const panel = document.getElementById("lc-cycle-panel");
-    if (!sel || !panel) return;
-
-    const name = sel.value;
-    const p = s.characters[name];
-    if (!p) { panel.innerHTML = '<div class="lc-empty">Персонаж не найден</div>'; return; }
-
-    if (p.pregnancy?.active) {
-        panel.innerHTML = '<div class="lc-info">Цикл приостановлен (беременность)</div>';
-        return;
-    }
-
-    if (!p.cycle?.enabled) {
-        panel.innerHTML = '<div class="lc-info">Цикл отключён для этого персонажа</div>';
-        return;
-    }
-
-    const cm = new CycleManager(p);
-    const ph = cm.phase();
-    const fert = cm.fertility();
-    const lib = cm.libido();
-    const sym = cm.symptoms();
-    const disc = cm.discharge();
-
-    // Calendar visualization
+function renderCycle() {
+    const s = extension_settings[extensionName], el = document.getElementById("lc-cycle-panel"), sel = document.getElementById("lc-cycle-char"); if (!el || !sel) return;
+    const p = s.characters[sel.value]; if (!p?.cycle?.enabled || p.pregnancy?.active) { el.innerHTML = '<div class="lc-info">Цикл неактивен</div>'; return; }
+    const cm = new CycleManager(p), ph = cm.phase(), f = cm.fertility();
+    let fc = "low"; if (f >= 0.2) fc = "peak"; else if (f >= 0.1) fc = "high"; else if (f >= 0.05) fc = "med";
     let cal = '<div class="lc-cycle-calendar">';
-    for (let d = 1; d <= p.cycle.length; d++) {
-        let cls = "lc-cal-day";
-        const ov = Math.round(p.cycle.length - 14);
-        if (d <= p.cycle.menstruationDuration) cls += " mens";
-        else if (d >= ov - 2 && d <= ov + 1) cls += " ovul";
-        else if (d < ov - 2) cls += " foll";
-        else cls += " lut";
-        if (d === p.cycle.currentDay) cls += " today";
-        cal += '<div class="' + cls + '">' + d + '</div>';
-    }
+    for (let d = 1; d <= p.cycle.length; d++) { const ov = Math.round(p.cycle.length - 14); let c = "lc-cal-day"; if (d <= p.cycle.menstruationDuration) c += " mens"; else if (d >= ov-2 && d <= ov+1) c += " ovul"; else if (d < ov-2) c += " foll"; else c += " lut"; if (d === p.cycle.currentDay) c += " today"; cal += '<div class="'+c+'">'+d+'</div>'; }
     cal += '</div>';
+    el.innerHTML = cal + '<div class="lc-cycle-info"><div>' + cm.emoji(ph) + ' ' + cm.label(ph) + ' · День ' + p.cycle.currentDay + '/' + p.cycle.length + '</div><div>Фертильность: <span class="lc-fert-badge '+fc+'">' + Math.round(f*100) + '%</span> · Либидо: ' + cm.libido() + '</div><div>Выделения: ' + cm.discharge() + '</div>' + (cm.symptoms().length > 0 ? '<div>Симптомы: ' + cm.symptoms().join(', ') + '</div>' : '') + '</div>';
+}
 
-    let fertClass = "low";
-    if (fert >= 0.2) fertClass = "peak";
-    else if (fert >= 0.1) fertClass = "high";
-    else if (fert >= 0.05) fertClass = "med";
+function renderHeatRut() {
+    const s = extension_settings[extensionName], el = document.getElementById("lc-hr-panel"), sel = document.getElementById("lc-hr-char"); if (!el || !sel) return;
+    const p = s.characters[sel.value];
+    if (!p) { el.innerHTML = '<div class="lc-info">Выберите персонажа</div>'; return; }
+    if (!s.modules.auOverlay || s.auPreset !== "omegaverse") { el.innerHTML = '<div class="lc-info">Включите AU-оверлей (Омегаверс) в настройках</div>'; return; }
+    if (!p.secondarySex || (p.secondarySex !== "omega" && p.secondarySex !== "alpha")) { el.innerHTML = '<div class="lc-info">Персонаж не альфа/омега</div>'; return; }
 
-    panel.innerHTML = cal +
-        '<div class="lc-cycle-info">' +
-            '<div class="lc-info-row"><span class="lc-label">Фаза:</span> ' + cm.phaseEmoji(ph) + ' ' + cm.phaseLabel(ph) + '</div>' +
-            '<div class="lc-info-row"><span class="lc-label">День:</span> ' + p.cycle.currentDay + ' / ' + p.cycle.length + '</div>' +
-            '<div class="lc-info-row"><span class="lc-label">Фертильность:</span> <span class="lc-fert-badge ' + fertClass + '">' + Math.round(fert * 100) + '%</span></div>' +
-            '<div class="lc-info-row"><span class="lc-label">Либидо:</span> ' + lib + '</div>' +
-            '<div class="lc-info-row"><span class="lc-label">Выделения:</span> ' + disc + '</div>' +
-            (sym.length > 0 ? '<div class="lc-info-row"><span class="lc-label">Симптомы:</span> ' + sym.join(', ') + '</div>' : '') +
-        '</div>' +
-        '<div class="lc-btn-group" style="margin-top:8px">' +
-            '<button id="lc-cycle-plus1" class="lc-btn">+1 день</button>' +
-            '<button id="lc-cycle-plus7" class="lc-btn">+7 дней</button>' +
-            '<button id="lc-cycle-set" class="lc-btn">Уст. день</button>' +
-        '</div>';
+    const hrm = new HeatRutManager(p);
+    let h = '';
 
-    document.getElementById("lc-cycle-plus1")?.addEventListener("click", () => {
-        new CycleManager(p).advance(1);
-        if (!s.worldDate.frozen) s.worldDate = addDays(s.worldDate, 1);
-        saveSettingsDebounced(); renderCyclePanel(); renderDashboard();
-    });
-    document.getElementById("lc-cycle-plus7")?.addEventListener("click", () => {
-        new CycleManager(p).advance(7);
-        if (!s.worldDate.frozen) s.worldDate = addDays(s.worldDate, 7);
-        saveSettingsDebounced(); renderCyclePanel(); renderDashboard();
-    });
-    document.getElementById("lc-cycle-set")?.addEventListener("click", () => {
-        const v = prompt("Установить день цикла (1-" + p.cycle.length + "):");
-        if (v && !isNaN(v)) {
-            p.cycle.currentDay = clamp(parseInt(v), 1, p.cycle.length);
-            saveSettingsDebounced(); renderCyclePanel(); renderDashboard();
+    if (p.secondarySex === "omega") {
+        const hph = HeatRutManager.HEAT_PHASES[hrm.heatPhase()];
+        h += '<div class="lc-section"><div class="lc-section-title"><h4>🔥 Цикл течки</h4></div>';
+        h += '<div class="lc-info-row">Фаза: <strong>' + hph + '</strong></div>';
+        if (p.heat.active) {
+            h += '<div class="lc-info-row">День: ' + p.heat.currentDay + ' / ' + p.heat.duration + '</div>';
+            h += '<div class="lc-sw-mini-progress"><div class="lc-sw-mini-fill heat" style="width:' + hrm.heatProgress() + '%"></div></div>';
+            h += '<div class="lc-info-row">Интенсивность: ' + p.heat.intensity + '</div>';
+        } else {
+            h += '<div class="lc-info-row">До следующей: ' + hrm.heatDaysUntilNext() + ' дн.</div>';
+            h += '<div class="lc-sw-mini-progress"><div class="lc-sw-mini-fill heat-cycle" style="width:' + hrm.heatProgress() + '%"></div></div>';
         }
-    });
-}
-
-function renderPregPanel() {
-    const s = extension_settings[extensionName];
-    const sel = document.getElementById("lc-preg-char");
-    const panel = document.getElementById("lc-preg-panel");
-    if (!sel || !panel) return;
-
-    const name = sel.value;
-    const p = s.characters[name];
-    if (!p) { panel.innerHTML = '<div class="lc-empty">Персонаж не найден</div>'; return; }
-
-    if (!p.pregnancy?.active) {
-        panel.innerHTML = '<div class="lc-info">Беременность не активна</div>';
-        return;
+        const hs = hrm.heatSymptoms();
+        if (hs.length > 0) h += '<div class="lc-info-row">Симптомы: ' + hs.join(', ') + '</div>';
+        h += '<div class="lc-btn-group" style="margin-top:6px">';
+        h += '<button id="lc-hr-trigger-heat" class="lc-btn">Запустить течку</button>';
+        h += '<button id="lc-hr-stop-heat" class="lc-btn">Остановить</button>';
+        h += '<button id="lc-hr-suppress" class="lc-btn">' + (p.heat.onSuppressants ? '💊 Снять супрессанты' : '💊 Супрессанты') + '</button>';
+        h += '</div></div>';
     }
 
-    const pm = new PregnancyManager(p);
-    const pr = p.pregnancy;
-    const prog = Math.round((pr.week / pr.maxWeeks) * 100);
-
-    panel.innerHTML =
-        '<div class="lc-preg-header">' +
-            '<div class="lc-preg-week">Неделя ' + pr.week + ' / ' + pr.maxWeeks + '</div>' +
-            '<div class="lc-preg-trim">Триместр ' + pm.trimester() + '</div>' +
-        '</div>' +
-        '<div class="lc-sw-progress" style="margin:8px 0"><div class="lc-sw-progress-fill" style="width:' + prog + '%"></div></div>' +
-        '<div class="lc-preg-info">' +
-            '<div class="lc-info-row"><span class="lc-label">Размер плода:</span> ~' + pm.fetalSize() + '</div>' +
-            '<div class="lc-info-row"><span class="lc-label">Кол-во:</span> ' + pr.fetusCount + '</div>' +
-            '<div class="lc-info-row"><span class="lc-label">Отец:</span> ' + (pr.father || '?') + '</div>' +
-            '<div class="lc-info-row"><span class="lc-label">Шевеления:</span> ' + pm.movements() + '</div>' +
-            '<div class="lc-info-row"><span class="lc-label">Прибавка веса:</span> +' + pm.weightGain() + ' кг</div>' +
-            '<div class="lc-info-row"><span class="lc-label">Симптомы:</span> ' + pm.symptoms().join(', ') + '</div>' +
-            '<div class="lc-info-row"><span class="lc-label">Тело:</span> ' + pm.bodyChanges().join(', ') + '</div>' +
-            '<div class="lc-info-row"><span class="lc-label">Эмоции:</span> ' + pm.emotionalState() + '</div>' +
-        '</div>';
-}
-
-function renderLaborPanel() {
-    const s = extension_settings[extensionName];
-    const sel = document.getElementById("lc-labor-char");
-    const panel = document.getElementById("lc-labor-panel");
-    if (!sel || !panel) return;
-
-    const name = sel.value;
-    const p = s.characters[name];
-    if (!p) { panel.innerHTML = '<div class="lc-empty">Персонаж не найден</div>'; return; }
-
-    if (!p.labor?.active) {
-        panel.innerHTML = '<div class="lc-info">Роды не активны</div>';
-        return;
+    if (p.secondarySex === "alpha") {
+        const rph = HeatRutManager.RUT_PHASES[hrm.rutPhase()];
+        h += '<div class="lc-section"><div class="lc-section-title"><h4>💢 Цикл гона</h4></div>';
+        h += '<div class="lc-info-row">Фаза: <strong>' + rph + '</strong></div>';
+        if (p.rut.active) {
+            h += '<div class="lc-info-row">День: ' + p.rut.currentDay + ' / ' + p.rut.duration + '</div>';
+            h += '<div class="lc-sw-mini-progress"><div class="lc-sw-mini-fill rut" style="width:' + hrm.rutProgress() + '%"></div></div>';
+        } else {
+            h += '<div class="lc-info-row">До следующего: ' + hrm.rutDaysUntilNext() + ' дн.</div>';
+            h += '<div class="lc-sw-mini-progress"><div class="lc-sw-mini-fill rut-cycle" style="width:' + hrm.rutProgress() + '%"></div></div>';
+        }
+        const rs = hrm.rutSymptoms();
+        if (rs.length > 0) h += '<div class="lc-info-row">Симптомы: ' + rs.join(', ') + '</div>';
+        h += '<div class="lc-btn-group" style="margin-top:6px">';
+        h += '<button id="lc-hr-trigger-rut" class="lc-btn">Запустить гон</button>';
+        h += '<button id="lc-hr-stop-rut" class="lc-btn">Остановить</button>';
+        h += '</div></div>';
     }
 
+    el.innerHTML = h;
+
+    // Bind heat/rut buttons
+    document.getElementById("lc-hr-trigger-heat")?.addEventListener("click", () => { p.heat.active = true; p.heat.currentDay = 1; p.heat.intensity = "severe"; saveSettingsDebounced(); renderHeatRut(); renderDash(); });
+    document.getElementById("lc-hr-stop-heat")?.addEventListener("click", () => { p.heat.active = false; p.heat.currentDay = 0; p.heat.daysSinceLast = 0; saveSettingsDebounced(); renderHeatRut(); renderDash(); });
+    document.getElementById("lc-hr-suppress")?.addEventListener("click", () => { p.heat.onSuppressants = !p.heat.onSuppressants; saveSettingsDebounced(); renderHeatRut(); });
+    document.getElementById("lc-hr-trigger-rut")?.addEventListener("click", () => { p.rut.active = true; p.rut.currentDay = 1; p.rut.intensity = "moderate"; saveSettingsDebounced(); renderHeatRut(); renderDash(); });
+    document.getElementById("lc-hr-stop-rut")?.addEventListener("click", () => { p.rut.active = false; p.rut.currentDay = 0; p.rut.daysSinceLast = 0; saveSettingsDebounced(); renderHeatRut(); renderDash(); });
+}
+
+function renderPreg() {
+    const s = extension_settings[extensionName], el = document.getElementById("lc-preg-panel"), sel = document.getElementById("lc-preg-char"); if (!el || !sel) return;
+    const p = s.characters[sel.value]; if (!p?.pregnancy?.active) { el.innerHTML = '<div class="lc-info">Беременность неактивна</div>'; return; }
+    const pm = new PregnancyManager(p), pr = p.pregnancy, prog = Math.round((pr.week/pr.maxWeeks)*100);
+    el.innerHTML = '<div class="lc-preg-header"><span class="lc-preg-week">Неделя '+pr.week+'/'+pr.maxWeeks+'</span><span class="lc-preg-trim">Триместр '+pm.trimester()+'</span></div>' +
+        '<div class="lc-sw-mini-progress"><div class="lc-sw-mini-fill preg" style="width:'+prog+'%"></div></div>' +
+        '<div class="lc-info-row">Размер: ~'+pm.fetalSize()+' · Плодов: '+pr.fetusCount+'</div>' +
+        '<div class="lc-info-row">Отец: '+(pr.father||'?')+'</div>' +
+        '<div class="lc-info-row">Шевеления: '+pm.movements()+'</div>' +
+        '<div class="lc-info-row">Вес: +'+pm.weightGain()+' кг</div>' +
+        '<div class="lc-info-row">Симптомы: '+pm.symptoms().join(', ')+'</div>' +
+        '<div class="lc-info-row">Тело: '+pm.bodyChanges().join(', ')+'</div>' +
+        '<div class="lc-info-row">Эмоции: '+pm.emotion()+'</div>';
+}
+
+function renderLabor() {
+    const s = extension_settings[extensionName], el = document.getElementById("lc-labor-panel"), sel = document.getElementById("lc-labor-char"); if (!el || !sel) return;
+    const p = s.characters[sel.value]; if (!p?.labor?.active) { el.innerHTML = '<div class="lc-info">Роды неактивны</div>'; return; }
     const lm = new LaborManager(p);
-
-    panel.innerHTML =
-        '<div class="lc-labor-info">' +
-            '<div class="lc-info-row lc-labor-stage"><span class="lc-label">Стадия:</span> ' + LABOR_LABELS[p.labor.stage] + '</div>' +
-            '<div class="lc-info-row"><span class="lc-label">Раскрытие:</span> ' + p.labor.dilation + ' / 10 см</div>' +
-            '<div class="lc-sw-progress" style="margin:4px 0"><div class="lc-sw-progress-fill" style="width:' + (p.labor.dilation * 10) + '%"></div></div>' +
-            '<div class="lc-info-row"><span class="lc-label">Схватки:</span> каждые ' + p.labor.contractionInterval + ' мин, ' + p.labor.contractionDuration + ' сек</div>' +
-            '<div class="lc-info-row"><span class="lc-label">Часов прошло:</span> ' + p.labor.hoursElapsed.toFixed(1) + '</div>' +
-            '<div class="lc-info-row"><span class="lc-label">Родилось:</span> ' + p.labor.babiesDelivered + ' / ' + p.labor.totalBabies + '</div>' +
-            '<div class="lc-labor-desc">' + lm.description() + '</div>' +
-        '</div>';
+    el.innerHTML = '<div class="lc-info-row lc-labor-stage">Стадия: '+L_LABELS[p.labor.stage]+'</div>' +
+        '<div class="lc-info-row">Раскрытие: '+p.labor.dilation+'/10 см</div>' +
+        '<div class="lc-sw-mini-progress"><div class="lc-sw-mini-fill labor" style="width:'+(p.labor.dilation*10)+'%"></div></div>' +
+        '<div class="lc-info-row">Схватки: каждые '+p.labor.contractionInterval+' мин</div>' +
+        '<div class="lc-info-row">Часов: '+p.labor.hoursElapsed.toFixed(1)+'</div>' +
+        '<div class="lc-labor-desc">'+lm.desc()+'</div>';
 }
 
-function renderBabyList() {
-    const s = extension_settings[extensionName];
-    const sel = document.getElementById("lc-baby-parent");
-    const list = document.getElementById("lc-baby-list");
-    if (!sel || !list) return;
-
-    const name = sel.value;
-    const p = s.characters[name];
-    if (!p || !p.babies || p.babies.length === 0) {
-        list.innerHTML = '<div class="lc-empty">Нет малышей</div>';
-        return;
-    }
-
-    let html = "";
-    p.babies.forEach((b, i) => {
-        const bm = new BabyManager(b);
-        const ms = bm.milestones();
-        const secSex = b.secondarySex ? ' | ' + b.secondarySex : '';
-
-        html += '<div class="lc-baby-card">' +
-            '<div class="lc-baby-header">' +
-                '<span class="lc-baby-name">' + (b.name || 'Без имени #' + (i + 1)) + '</span>' +
-                '<span class="lc-baby-sex">' + (b.sex === 'M' ? '♂' : '♀') + secSex + '</span>' +
-            '</div>' +
-            '<div class="lc-baby-details">' +
-                '<div class="lc-info-row"><span class="lc-label">Возраст:</span> ' + bm.ageLabel() + '</div>' +
-                '<div class="lc-info-row"><span class="lc-label">Стадия:</span> ' + b.state + '</div>' +
-                '<div class="lc-info-row"><span class="lc-label">Вес:</span> ' + (b.currentWeight / 1000).toFixed(1) + ' кг</div>' +
-                '<div class="lc-info-row"><span class="lc-label">Глаза:</span> ' + (b.eyeColor || '?') + '</div>' +
-                '<div class="lc-info-row"><span class="lc-label">Волосы:</span> ' + (b.hairColor || '?') + '</div>' +
-                '<div class="lc-info-row"><span class="lc-label">Мать:</span> ' + (b.mother || '?') + '</div>' +
-                '<div class="lc-info-row"><span class="lc-label">Отец:</span> ' + (b.father || '?') + '</div>' +
-                (b.nonHumanFeatures?.length > 0 ? '<div class="lc-info-row"><span class="lc-label">Особенности:</span> ' + b.nonHumanFeatures.join(', ') + '</div>' : '') +
-                (ms.length > 0 ? '<div class="lc-info-row"><span class="lc-label">Вехи:</span> ' + ms.join(', ') + '</div>' : '') +
-            '</div>' +
-            '<div class="lc-baby-actions">' +
-                '<button class="lc-btn lc-btn-sm lc-baby-rename" data-parent="' + name + '" data-idx="' + i + '">✏️ Имя</button>' +
-            '</div>' +
-        '</div>';
+function renderBabies() {
+    const s = extension_settings[extensionName], el = document.getElementById("lc-baby-list"), sel = document.getElementById("lc-baby-parent"); if (!el || !sel) return;
+    const p = s.characters[sel.value]; if (!p?.babies?.length) { el.innerHTML = '<div class="lc-empty">Нет малышей</div>'; return; }
+    let h = "";
+    p.babies.forEach((b, i) => { const bm = new BabyManager(b); const ms = bm.milestones();
+        h += '<div class="lc-baby-card"><div class="lc-baby-header"><span class="lc-baby-name">'+(b.name||'#'+(i+1))+'</span><span class="lc-baby-sex">'+(b.sex==="M"?'♂':'♀')+(b.secondarySex?' · '+b.secondarySex:'')+'</span></div>';
+        h += '<div class="lc-baby-details"><div class="lc-info-row">Возраст: '+bm.age()+' · '+b.state+'</div><div class="lc-info-row">Вес: '+(b.currentWeight/1000).toFixed(1)+' кг</div>';
+        if (ms.length > 0) h += '<div class="lc-info-row">Вехи: '+ms.join(', ')+'</div>';
+        h += '</div><div class="lc-baby-actions"><button class="lc-btn lc-btn-sm lc-baby-rename" data-p="'+sel.value+'" data-i="'+i+'">✏️</button></div></div>';
     });
-
-    list.innerHTML = html;
-
-    list.querySelectorAll(".lc-baby-rename").forEach(btn => {
-        btn.addEventListener("click", function() {
-            const pName = this.dataset.parent;
-            const idx = parseInt(this.dataset.idx);
-            const baby = s.characters[pName]?.babies?.[idx];
-            if (!baby) return;
-            const newName = prompt("Имя малыша:", baby.name || "");
-            if (newName !== null) {
-                baby.name = newName;
-                saveSettingsDebounced();
-                renderBabyList();
-            }
-        });
-    });
+    el.innerHTML = h;
+    el.querySelectorAll(".lc-baby-rename").forEach(btn => btn.addEventListener("click", function() { const baby = s.characters[this.dataset.p]?.babies?.[+this.dataset.i]; if (!baby) return; const n = prompt("Имя:", baby.name); if (n !== null) { baby.name = n; saveSettingsDebounced(); renderBabies(); } }));
 }
 
 function renderDiceLog() {
-    const s = extension_settings[extensionName];
-    const el = document.getElementById("lc-dice-log");
-    if (!el) return;
-
-    if (s.diceLog.length === 0) {
-        el.innerHTML = '<div class="lc-empty">Бросков пока нет</div>';
-        return;
-    }
-
-    let html = "";
-    for (let i = s.diceLog.length - 1; i >= Math.max(0, s.diceLog.length - 20); i--) {
-        const d = s.diceLog[i];
-        const cls = d.result ? "lc-dice-success" : "lc-dice-fail";
-        const autoTag = d.autoDetected ? ' <span class="lc-tag lc-tag-auto">авто</span>' : '';
-        html += '<div class="lc-dice-entry ' + cls + '">' +
-            '<span class="lc-dice-ts">' + d.timestamp + '</span>' + autoTag +
-            ' 🎲 ' + d.roll + '/' + d.chance + '% ' +
-            (d.result ? '✅' : '❌') + ' ' + d.targetChar +
-            ' (' + d.actType + ', ' + d.ejaculation + ', контр: ' + d.contraception + ')' +
-        '</div>';
-    }
-    el.innerHTML = html;
+    const s = extension_settings[extensionName], el = document.getElementById("lc-dice-log"); if (!el) return;
+    if (s.diceLog.length === 0) { el.innerHTML = '<div class="lc-empty">Нет бросков</div>'; return; }
+    el.innerHTML = [...s.diceLog].reverse().slice(0,20).map(d => '<div class="lc-dice-entry '+(d.result?'lc-dice-success':'lc-dice-fail')+'">'+d.ts+' 🎲 '+d.roll+'/'+d.chance+'% '+(d.result?'✅':'❌')+' '+d.target+(d.auto?' <span class="lc-tag lc-tag-auto">авто</span>':'')+'</div>').join("");
 }
 
 function renderIntimLog() {
-    const s = extension_settings[extensionName];
-    const el = document.getElementById("lc-intim-log-list");
-    if (!el) return;
-
-    if (s.intimacyLog.length === 0) {
-        el.innerHTML = '<div class="lc-empty">Лог пуст</div>';
-        return;
-    }
-
-    let html = "";
-    for (let i = s.intimacyLog.length - 1; i >= Math.max(0, s.intimacyLog.length - 20); i--) {
-        const e = s.intimacyLog[i];
-        html += '<div class="lc-intim-entry">' +
-            '<span class="lc-intim-ts">' + e.timestamp + '</span> ' +
-            (e.participants || []).join(' × ') + ' | ' + (e.type || '?') + ' | ' + (e.ejaculation || '?') +
-        '</div>';
-    }
-    el.innerHTML = html;
+    const s = extension_settings[extensionName], el = document.getElementById("lc-intim-log-list"); if (!el) return;
+    if (s.intimacyLog.length === 0) { el.innerHTML = '<div class="lc-empty">Лог пуст</div>'; return; }
+    el.innerHTML = [...s.intimacyLog].reverse().slice(0,20).map(e => '<div class="lc-intim-entry">'+e.ts+' '+(e.parts||[]).join('×')+' | '+e.type+' | '+e.ejac+'</div>').join("");
 }
 
-// ==========================================
-// REBUILD ALL UI
-// ==========================================
+function renderAU() {
+    const s = extension_settings[extensionName], el = document.getElementById("lc-au-panel"); if (!el) return;
+    if (!s.modules.auOverlay || s.auPreset === "realism") { el.innerHTML = ''; return; }
+    if (s.auPreset === "omegaverse") {
+        const a = s.auSettings.omegaverse;
+        el.innerHTML = '<div class="lc-editor-grid">' +
+            '<div class="lc-editor-field"><label>Цикл течки (дн.)</label><input type="number" id="lc-au-hc" class="lc-input" value="'+a.heatCycleLength+'"></div>' +
+            '<div class="lc-editor-field"><label>Длит. течки</label><input type="number" id="lc-au-hd" class="lc-input" value="'+a.heatDuration+'"></div>' +
+            '<div class="lc-editor-field"><label>Бонус ферт.</label><input type="number" id="lc-au-hf" class="lc-input" step="0.05" value="'+a.heatFertilityBonus+'"></div>' +
+            '<div class="lc-editor-field"><label>Цикл гона (дн.)</label><input type="number" id="lc-au-rc" class="lc-input" value="'+a.rutCycleLength+'"></div>' +
+            '<div class="lc-editor-field"><label>Длит. гона</label><input type="number" id="lc-au-rd" class="lc-input" value="'+a.rutDuration+'"></div>' +
+            '<div class="lc-editor-field"><label>Недель берем.</label><input type="number" id="lc-au-pw" class="lc-input" value="'+a.pregnancyWeeks+'"></div>' +
+        '</div>' +
+        '<label class="lc-checkbox"><input type="checkbox" id="lc-au-knot" '+(a.knotEnabled?'checked':'')+'><span>Узел</span></label>' +
+        '<label class="lc-checkbox"><input type="checkbox" id="lc-au-bond" '+(a.bondingEnabled?'checked':'')+'><span>Связь</span></label>' +
+        '<label class="lc-checkbox"><input type="checkbox" id="lc-au-suppress" '+(a.suppressantsAvailable?'checked':'')+'><span>Супрессанты</span></label>' +
+        '<label class="lc-checkbox"><input type="checkbox" id="lc-au-mpreg" '+(a.maleOmegaPregnancy?'checked':'')+'><span>Мужская беременность (омега)</span></label>';
 
-function rebuildUI() {
-    renderDashboard();
-    renderCharList();
-    renderCyclePanel();
-    renderPregPanel();
-    renderLaborPanel();
-    renderBabyList();
-    renderDiceLog();
-    renderIntimLog();
-    updateAllSelects();
-}
-
-function updateAllSelects() {
-    const s = extension_settings[extensionName];
-    const names = Object.keys(s.characters);
-    const opts = names.map(n => '<option value="' + n + '">' + n + '</option>').join("");
-
-    document.querySelectorAll(".lc-char-select").forEach(sel => {
-        const prev = sel.value;
-        sel.innerHTML = opts;
-        if (names.includes(prev)) sel.value = prev;
-    });
+        // Bind AU inputs
+        setTimeout(() => {
+            document.getElementById("lc-au-hc")?.addEventListener("change", function() { a.heatCycleLength = parseInt(this.value); saveSettingsDebounced(); });
+            document.getElementById("lc-au-hd")?.addEventListener("change", function() { a.heatDuration = parseInt(this.value); saveSettingsDebounced(); });
+            document.getElementById("lc-au-hf")?.addEventListener("change", function() { a.heatFertilityBonus = parseFloat(this.value); saveSettingsDebounced(); });
+            document.getElementById("lc-au-rc")?.addEventListener("change", function() { a.rutCycleLength = parseInt(this.value); saveSettingsDebounced(); });
+            document.getElementById("lc-au-rd")?.addEventListener("change", function() { a.rutDuration = parseInt(this.value); saveSettingsDebounced(); });
+            document.getElementById("lc-au-pw")?.addEventListener("change", function() { a.pregnancyWeeks = parseInt(this.value); saveSettingsDebounced(); });
+            document.getElementById("lc-au-knot")?.addEventListener("change", function() { a.knotEnabled = this.checked; saveSettingsDebounced(); });
+            document.getElementById("lc-au-bond")?.addEventListener("change", function() { a.bondingEnabled = this.checked; saveSettingsDebounced(); });
+            document.getElementById("lc-au-suppress")?.addEventListener("change", function() { a.suppressantsAvailable = this.checked; saveSettingsDebounced(); });
+            document.getElementById("lc-au-mpreg")?.addEventListener("change", function() { a.maleOmegaPregnancy = this.checked; saveSettingsDebounced(); });
+        }, 100);
+    }
 }
 
 // ==========================================
 // CHARACTER EDITOR
 // ==========================================
 
-let currentEditChar = null;
-
-function openCharEditor(name) {
-    const s = extension_settings[extensionName];
-    const p = s.characters[name];
-    if (!p) return;
-    currentEditChar = name;
-
-    const editor = document.getElementById("lc-char-editor");
-    const title = document.getElementById("lc-editor-title");
-    if (!editor || !title) return;
-
-    title.textContent = "Редактирование: " + name;
-
-    document.getElementById("lc-edit-bio-sex").value = p.bioSex || "F";
-    document.getElementById("lc-edit-sec-sex").value = p.secondarySex || "";
-    document.getElementById("lc-edit-race").value = p.race || "human";
-    document.getElementById("lc-edit-contra").value = p.contraception || "none";
-    document.getElementById("lc-edit-difficulty").value = p.pregnancyDifficulty || "normal";
-    document.getElementById("lc-edit-eyes").value = p.eyeColor || "";
-    document.getElementById("lc-edit-hair").value = p.hairColor || "";
-    document.getElementById("lc-edit-enabled").checked = p._enabled !== false;
-    document.getElementById("lc-edit-cycle-on").checked = p.cycle?.enabled !== false;
-    document.getElementById("lc-edit-cycle-len").value = p.cycle?.baseLength || 28;
-    document.getElementById("lc-edit-mens-dur").value = p.cycle?.menstruationDuration || 5;
-    document.getElementById("lc-edit-irreg").value = p.cycle?.irregularity || 2;
-    document.getElementById("lc-edit-symptom-int").value = p.cycle?.symptomIntensity || "moderate";
-
-    editor.classList.remove("hidden");
+let editChar = null;
+function openEditor(name) {
+    const s = extension_settings[extensionName], p = s.characters[name]; if (!p) return; editChar = name;
+    document.getElementById("lc-char-editor")?.classList.remove("hidden");
+    document.getElementById("lc-editor-title").textContent = "✏️ " + name;
+    document.getElementById("lc-edit-bio-sex").value = p.bioSex; document.getElementById("lc-edit-sec-sex").value = p.secondarySex || "";
+    document.getElementById("lc-edit-race").value = p.race || "human"; document.getElementById("lc-edit-contra").value = p.contraception;
+    document.getElementById("lc-edit-eyes").value = p.eyeColor; document.getElementById("lc-edit-hair").value = p.hairColor;
+    document.getElementById("lc-edit-diff").value = p.pregnancyDifficulty; document.getElementById("lc-edit-enabled").checked = p._enabled !== false;
+    document.getElementById("lc-edit-cycle-on").checked = p.cycle?.enabled; document.getElementById("lc-edit-cycle-len").value = p.cycle?.baseLength || 28;
+    document.getElementById("lc-edit-mens-dur").value = p.cycle?.menstruationDuration || 5; document.getElementById("lc-edit-irreg").value = p.cycle?.irregularity || 2;
 }
-
-function closeCharEditor() {
-    currentEditChar = null;
-    document.getElementById("lc-char-editor")?.classList.add("hidden");
-}
-
-function saveCharEditor() {
-    if (!currentEditChar) return;
-    const s = extension_settings[extensionName];
-    const p = s.characters[currentEditChar];
-    if (!p) return;
-
-    p.bioSex = document.getElementById("lc-edit-bio-sex").value;
-    p._manualBioSex = true;
-    p.secondarySex = document.getElementById("lc-edit-sec-sex").value || null;
-    p._manualSecSex = true;
-    p.race = document.getElementById("lc-edit-race").value;
-    p._manualRace = true;
+function closeEditor() { editChar = null; document.getElementById("lc-char-editor")?.classList.add("hidden"); }
+function saveEditor() {
+    if (!editChar) return; const s = extension_settings[extensionName], p = s.characters[editChar]; if (!p) return;
+    p.bioSex = document.getElementById("lc-edit-bio-sex").value; p._mBio = true;
+    p.secondarySex = document.getElementById("lc-edit-sec-sex").value || null; p._mSec = true;
+    p.race = document.getElementById("lc-edit-race").value; p._mRace = true;
     p.contraception = document.getElementById("lc-edit-contra").value;
-    p.pregnancyDifficulty = document.getElementById("lc-edit-difficulty").value;
-    p.eyeColor = document.getElementById("lc-edit-eyes").value;
-    p._manualEyes = !!p.eyeColor;
-    p.hairColor = document.getElementById("lc-edit-hair").value;
-    p._manualHair = !!p.hairColor;
+    p.eyeColor = document.getElementById("lc-edit-eyes").value; p._mEyes = !!p.eyeColor;
+    p.hairColor = document.getElementById("lc-edit-hair").value; p._mHair = !!p.hairColor;
+    p.pregnancyDifficulty = document.getElementById("lc-edit-diff").value;
     p._enabled = document.getElementById("lc-edit-enabled").checked;
-
-    if (!p.cycle) p.cycle = makeProfile("", false).cycle;
-    p.cycle.enabled = document.getElementById("lc-edit-cycle-on").checked;
-    p.cycle.baseLength = parseInt(document.getElementById("lc-edit-cycle-len").value) || 28;
-    p.cycle.length = p.cycle.baseLength;
-    p.cycle.menstruationDuration = parseInt(document.getElementById("lc-edit-mens-dur").value) || 5;
-    p.cycle.irregularity = parseInt(document.getElementById("lc-edit-irreg").value) || 2;
-    p.cycle.symptomIntensity = document.getElementById("lc-edit-symptom-int").value;
-
-    saveSettingsDebounced();
-    closeCharEditor();
-    rebuildUI();
-    toastr.success("Персонаж «" + currentEditChar + "» обновлён!");
+    if (p.cycle) { p.cycle.enabled = document.getElementById("lc-edit-cycle-on").checked; const l = parseInt(document.getElementById("lc-edit-cycle-len").value); if (l >= 21 && l <= 45) { p.cycle.baseLength = l; p.cycle.length = l; } p.cycle.menstruationDuration = parseInt(document.getElementById("lc-edit-mens-dur").value) || 5; p.cycle.irregularity = parseInt(document.getElementById("lc-edit-irreg").value) || 2; }
+    saveSettingsDebounced(); closeEditor(); rebuildUI(); toastr.success(editChar + ": сохранено!");
 }
 
 // ==========================================
-// EVENT HANDLERS
+// BIND ALL EVENTS
 // ==========================================
 
-function bindEvents() {
+function bindAll() {
     const s = extension_settings[extensionName];
-
-    // Collapse toggle
     document.getElementById("lifecycle-header-toggle")?.addEventListener("click", function(e) {
         if (e.target.closest(".lc-switch")) return;
-        const panel = document.getElementById("lifecycle-panel");
-        const body = document.getElementById("lifecycle-body");
-        const arrow = this.querySelector(".lc-collapse-arrow");
-        if (!panel || !body) return;
-
         s.panelCollapsed = !s.panelCollapsed;
-        panel.classList.toggle("collapsed", s.panelCollapsed);
-        if (arrow) arrow.textContent = s.panelCollapsed ? "▶" : "▼";
+        document.getElementById("lifecycle-panel")?.classList.toggle("collapsed", s.panelCollapsed);
+        this.querySelector(".lc-collapse-arrow").textContent = s.panelCollapsed ? "▶" : "▼";
         saveSettingsDebounced();
     });
-
-    // Enable toggle
-    document.getElementById("lc-enabled")?.addEventListener("change", function() {
-        s.enabled = this.checked;
-        saveSettingsDebounced();
-    });
+    document.getElementById("lc-enabled")?.addEventListener("change", function() { s.enabled = this.checked; saveSettingsDebounced(); });
 
     // Tabs
-    document.querySelectorAll(".lifecycle-tab").forEach(tab => {
-        tab.addEventListener("click", function() {
-            const target = this.dataset.tab;
-            document.querySelectorAll(".lifecycle-tab").forEach(t => t.classList.remove("active"));
-            document.querySelectorAll(".lifecycle-tab-content").forEach(c => c.classList.remove("active"));
-            this.classList.add("active");
-            document.querySelector('.lifecycle-tab-content[data-tab="' + target + '"]')?.classList.add("active");
-
-            if (target === "cycle") renderCyclePanel();
-            if (target === "preg") renderPregPanel();
-            if (target === "labor") renderLaborPanel();
-            if (target === "babies") renderBabyList();
-            if (target === "intim") { renderDiceLog(); renderIntimLog(); }
-        });
-    });
-
-    // Sync characters
-    document.getElementById("lc-sync-chars")?.addEventListener("click", () => {
-        syncCharacters();
+    document.querySelectorAll(".lifecycle-tab").forEach(t => t.addEventListener("click", function() {
+        document.querySelectorAll(".lifecycle-tab").forEach(x => x.classList.remove("active"));
+        document.querySelectorAll(".lifecycle-tab-content").forEach(x => x.classList.remove("active"));
+        this.classList.add("active");
+        document.querySelector('.lifecycle-tab-content[data-tab="'+this.dataset.tab+'"]')?.classList.add("active");
         rebuildUI();
-        toastr.success("Персонажи синхронизированы!");
-    });
+    }));
 
-    // Add manual character
-    document.getElementById("lc-add-manual")?.addEventListener("click", () => {
-        const name = prompt("Имя нового персонажа:");
-        if (!name || name.trim() === "") return;
-        if (s.characters[name.trim()]) { toastr.warning("Персонаж уже существует!"); return; }
-        s.characters[name.trim()] = makeProfile(name.trim(), false);
-        saveSettingsDebounced();
-        rebuildUI();
-        toastr.success("Добавлен: " + name.trim());
-    });
-
-    // Char list click handlers (edit / delete)
+    // Characters
+    document.getElementById("lc-sync-chars")?.addEventListener("click", () => { syncChars(); rebuildUI(); toastr.success("Синхронизировано!"); });
+    document.getElementById("lc-add-manual")?.addEventListener("click", () => { const n = prompt("Имя:"); if (!n?.trim()) return; if (s.characters[n.trim()]) return; s.characters[n.trim()] = makeProfile(n.trim(), false); saveSettingsDebounced(); rebuildUI(); });
+    document.getElementById("lc-reparse-chat")?.addEventListener("click", () => { s._chatParsed = false; syncChars(); rebuildUI(); toastr.success("Чат перечитан!"); });
     document.getElementById("lc-char-list")?.addEventListener("click", function(e) {
-        const editBtn = e.target.closest(".lc-edit-char");
-        const delBtn = e.target.closest(".lc-del-char");
-        if (editBtn) openCharEditor(editBtn.dataset.char);
-        if (delBtn) {
-            const charName = delBtn.dataset.char;
-            if (confirm("Удалить «" + charName + "»?")) {
-                delete s.characters[charName];
-                saveSettingsDebounced();
-                rebuildUI();
-            }
-        }
+        const eb = e.target.closest(".lc-edit-char"), db = e.target.closest(".lc-del-char");
+        if (eb) openEditor(eb.dataset.char);
+        if (db && confirm('Удалить "'+db.dataset.char+'"?')) { delete s.characters[db.dataset.char]; saveSettingsDebounced(); rebuildUI(); }
     });
+    document.getElementById("lc-editor-save")?.addEventListener("click", saveEditor);
+    document.getElementById("lc-editor-cancel")?.addEventListener("click", closeEditor);
 
-    // Editor save/cancel
-    document.getElementById("lc-editor-save")?.addEventListener("click", saveCharEditor);
-    document.getElementById("lc-editor-cancel")?.addEventListener("click", closeCharEditor);
+    // Select changes
+    document.getElementById("lc-cycle-char")?.addEventListener("change", renderCycle);
+    document.getElementById("lc-hr-char")?.addEventListener("change", renderHeatRut);
+    document.getElementById("lc-preg-char")?.addEventListener("change", renderPreg);
+    document.getElementById("lc-labor-char")?.addEventListener("change", renderLabor);
+    document.getElementById("lc-baby-parent")?.addEventListener("change", renderBabies);
 
-    // Character selects change handlers
-    document.getElementById("lc-cycle-char")?.addEventListener("change", renderCyclePanel);
-    document.getElementById("lc-preg-char")?.addEventListener("change", renderPregPanel);
-    document.getElementById("lc-labor-char")?.addEventListener("change", renderLaborPanel);
-    document.getElementById("lc-baby-parent")?.addEventListener("change", renderBabyList);
-
-    // Intimacy manual controls
+    // Intimacy
     document.getElementById("lc-intim-log-btn")?.addEventListener("click", () => {
-        const target = document.getElementById("lc-intim-target")?.value;
-        const partner = document.getElementById("lc-intim-partner")?.value;
-        const type = document.getElementById("lc-intim-type")?.value;
-        const ejac = document.getElementById("lc-intim-ejac")?.value;
-        if (!target) return;
-
-        IntimacyManager.log({
-            participants: [target, partner].filter(Boolean),
-            type: type || "vaginal",
-            ejaculation: ejac || "inside",
-        });
-        renderIntimLog();
-        toastr.info("Акт записан!");
+        const t = document.getElementById("lc-intim-target")?.value, p = document.getElementById("lc-intim-partner")?.value; if (!t) return;
+        IntimacyManager.log({ parts: [t,p].filter(Boolean), type: document.getElementById("lc-intim-type")?.value, ejac: document.getElementById("lc-intim-ejac")?.value }); renderIntimLog(); toastr.info("Записано!");
     });
-
     document.getElementById("lc-intim-roll-btn")?.addEventListener("click", () => {
-        const target = document.getElementById("lc-intim-target")?.value;
-        const partner = document.getElementById("lc-intim-partner")?.value;
-        const type = document.getElementById("lc-intim-type")?.value;
-        const ejac = document.getElementById("lc-intim-ejac")?.value;
-        if (!target) return;
-
-        const result = IntimacyManager.roll(target, {
-            participants: [target, partner].filter(Boolean),
-            type: type || "vaginal",
-            ejaculation: ejac || "inside",
-            hasContraception: false,
-            noContraception: false,
-        });
-        showDicePopup(result, target, false);
-        renderDiceLog();
+        const t = document.getElementById("lc-intim-target")?.value; if (!t) return;
+        const r = IntimacyManager.roll(t, { parts: [t, document.getElementById("lc-intim-partner")?.value].filter(Boolean), type: document.getElementById("lc-intim-type")?.value, ejac: document.getElementById("lc-intim-ejac")?.value }); showDicePopup(r, t, false); renderDiceLog();
     });
 
-    // Auto-detect toggles
-    document.getElementById("lc-auto-detect-intim")?.addEventListener("change", function() {
-        s.autoDetectIntimacy = this.checked; saveSettingsDebounced();
-    });
-    document.getElementById("lc-auto-roll")?.addEventListener("change", function() {
-        s.autoRollOnSex = this.checked; saveSettingsDebounced();
-    });
+    // Pregnancy
+    document.getElementById("lc-preg-advance")?.addEventListener("click", () => { const p = s.characters[document.getElementById("lc-preg-char")?.value]; if (!p?.pregnancy?.active) return; new PregnancyManager(p).advanceDay(7); saveSettingsDebounced(); renderPreg(); renderDash(); });
+    document.getElementById("lc-preg-set-week")?.addEventListener("click", () => { const p = s.characters[document.getElementById("lc-preg-char")?.value]; if (!p?.pregnancy?.active) return; const w = prompt("Неделя:"); if (w) { p.pregnancy.week = clamp(parseInt(w),1,p.pregnancy.maxWeeks); saveSettingsDebounced(); renderPreg(); } });
+    document.getElementById("lc-preg-to-labor")?.addEventListener("click", () => { const p = s.characters[document.getElementById("lc-preg-char")?.value]; if (!p?.pregnancy?.active) return; new LaborManager(p).start(); saveSettingsDebounced(); renderLabor(); renderDash(); toastr.warning("Роды!"); });
+    document.getElementById("lc-preg-end")?.addEventListener("click", () => { const p = s.characters[document.getElementById("lc-preg-char")?.value]; if (!p?.pregnancy?.active || !confirm("Прервать?")) return; p.pregnancy.active = false; if (p.cycle) p.cycle.enabled = true; saveSettingsDebounced(); renderPreg(); renderDash(); });
 
-    // Pregnancy buttons
-    document.getElementById("lc-preg-advance")?.addEventListener("click", () => {
-        const name = document.getElementById("lc-preg-char")?.value;
-        const p = s.characters[name];
-        if (!p?.pregnancy?.active) return;
-        new PregnancyManager(p).advanceDay(7);
-        if (!s.worldDate.frozen) s.worldDate = addDays(s.worldDate, 7);
-        saveSettingsDebounced(); renderPregPanel(); renderDashboard();
-    });
+    // Labor
+    document.getElementById("lc-labor-advance")?.addEventListener("click", () => { const p = s.characters[document.getElementById("lc-labor-char")?.value]; if (!p?.labor?.active) return; new LaborManager(p).advance(); saveSettingsDebounced(); renderLabor(); });
+    document.getElementById("lc-labor-deliver")?.addEventListener("click", () => { const p = s.characters[document.getElementById("lc-labor-char")?.value]; if (!p?.labor?.active) return; const lm = new LaborManager(p); lm.deliver(); const b = BabyManager.gen(p, p.pregnancy?.father); b.name = prompt("Имя:") || "Малыш"; p.babies.push(b); if (lm.l.babiesDelivered >= lm.l.totalBabies) lm.end(); saveSettingsDebounced(); renderLabor(); renderBabies(); renderDash(); toastr.success("Родился!"); });
+    document.getElementById("lc-labor-end")?.addEventListener("click", () => { const p = s.characters[document.getElementById("lc-labor-char")?.value]; if (!p?.labor?.active || !confirm("Завершить?")) return; new LaborManager(p).end(); saveSettingsDebounced(); renderLabor(); renderDash(); });
 
-    document.getElementById("lc-preg-set-week")?.addEventListener("click", () => {
-        const name = document.getElementById("lc-preg-char")?.value;
-        const p = s.characters[name];
-        if (!p?.pregnancy?.active) return;
-        const w = prompt("Установить неделю (1-" + p.pregnancy.maxWeeks + "):");
-        if (w && !isNaN(w)) {
-            p.pregnancy.week = clamp(parseInt(w), 1, p.pregnancy.maxWeeks);
-            p.pregnancy.day = 0;
-            p.pregnancy.weightGain = new PregnancyManager(p).weightGain();
-            saveSettingsDebounced(); renderPregPanel(); renderDashboard();
-        }
-    });
-
-    document.getElementById("lc-preg-to-labor")?.addEventListener("click", () => {
-        const name = document.getElementById("lc-preg-char")?.value;
-        const p = s.characters[name];
-        if (!p?.pregnancy?.active) return;
-        new LaborManager(p).start();
-        saveSettingsDebounced(); renderPregPanel(); renderLaborPanel(); renderDashboard();
-        toastr.warning("Роды начались для " + name + "!");
-    });
-
-    document.getElementById("lc-preg-end")?.addEventListener("click", () => {
-        const name = document.getElementById("lc-preg-char")?.value;
-        const p = s.characters[name];
-        if (!p?.pregnancy?.active) return;
-        if (!confirm("Прервать беременность «" + name + "»?")) return;
-        p.pregnancy.active = false;
-        p.pregnancy.week = 0; p.pregnancy.day = 0;
-        if (p.cycle) p.cycle.enabled = true;
-        saveSettingsDebounced(); renderPregPanel(); renderDashboard();
-    });
-
-    // Labor buttons
-    document.getElementById("lc-labor-advance")?.addEventListener("click", () => {
-        const name = document.getElementById("lc-labor-char")?.value;
-        const p = s.characters[name];
-        if (!p?.labor?.active) return;
-        new LaborManager(p).advance();
-        saveSettingsDebounced(); renderLaborPanel(); renderDashboard();
-    });
-
-    document.getElementById("lc-labor-deliver")?.addEventListener("click", () => {
-        const name = document.getElementById("lc-labor-char")?.value;
-        const p = s.characters[name];
-        if (!p?.labor?.active) return;
-
-        const lm = new LaborManager(p);
-        lm.deliver();
-
-        const baby = BabyManager.generate(p, p.pregnancy?.father);
-        p.babies.push(baby);
-        saveSettingsDebounced();
-
-        toastr.success("Родился малыш! (" + (baby.sex === "M" ? "мальчик" : "девочка") + ")");
-
-        if (lm.l.babiesDelivered >= lm.l.totalBabies) {
-            lm.end();
-            toastr.info("Роды завершены для " + name);
-        }
-
-        renderLaborPanel(); renderBabyList(); renderDashboard();
-    });
-
-    document.getElementById("lc-labor-set-dil")?.addEventListener("click", () => {
-        const name = document.getElementById("lc-labor-char")?.value;
-        const p = s.characters[name];
-        if (!p?.labor?.active) return;
-        const v = prompt("Раскрытие (0-10 см):");
-        if (v && !isNaN(v)) {
-            p.labor.dilation = clamp(parseInt(v), 0, 10);
-            saveSettingsDebounced(); renderLaborPanel();
-        }
-    });
-
-    document.getElementById("lc-labor-end")?.addEventListener("click", () => {
-        const name = document.getElementById("lc-labor-char")?.value;
-        const p = s.characters[name];
-        if (!p?.labor?.active) return;
-        if (!confirm("Завершить роды «" + name + "»?")) return;
-        new LaborManager(p).end();
-        saveSettingsDebounced(); renderLaborPanel(); renderPregPanel(); renderDashboard();
-    });
-
-    // Settings: Modules
-    document.getElementById("lc-mod-cycle")?.addEventListener("change", function() { s.modules.cycle = this.checked; saveSettingsDebounced(); });
-    document.getElementById("lc-mod-preg")?.addEventListener("change", function() { s.modules.pregnancy = this.checked; saveSettingsDebounced(); });
-    document.getElementById("lc-mod-labor")?.addEventListener("change", function() { s.modules.labor = this.checked; saveSettingsDebounced(); });
-    document.getElementById("lc-mod-baby")?.addEventListener("change", function() { s.modules.baby = this.checked; saveSettingsDebounced(); });
-    document.getElementById("lc-mod-intim")?.addEventListener("change", function() { s.modules.intimacy = this.checked; saveSettingsDebounced(); });
-    document.getElementById("lc-mod-au")?.addEventListener("change", function() {
-        s.modules.auOverlay = this.checked; saveSettingsDebounced();
-        toggleAUSections();
-    });
-
-    // Settings: Auto
-    document.getElementById("lc-auto-sync")?.addEventListener("change", function() { s.autoSyncCharacters = this.checked; saveSettingsDebounced(); });
-    document.getElementById("lc-auto-parse-info")?.addEventListener("change", function() { s.autoParseCharInfo = this.checked; saveSettingsDebounced(); });
-    document.getElementById("lc-auto-time")?.addEventListener("change", function() { s.autoTimeProgress = this.checked; saveSettingsDebounced(); });
-    document.getElementById("lc-time-confirm")?.addEventListener("change", function() { s.timeParserConfirmation = this.checked; saveSettingsDebounced(); });
-    document.getElementById("lc-show-widget")?.addEventListener("change", function() { s.showStatusWidget = this.checked; saveSettingsDebounced(); });
-    document.getElementById("lc-time-sens")?.addEventListener("change", function() { s.timeParserSensitivity = this.value; saveSettingsDebounced(); });
-
-    // Settings: Date
-    document.getElementById("lc-date-apply")?.addEventListener("click", () => {
-        s.worldDate.year = parseInt(document.getElementById("lc-date-y")?.value) || 2025;
-        s.worldDate.month = clamp(parseInt(document.getElementById("lc-date-m")?.value) || 1, 1, 12);
-        s.worldDate.day = clamp(parseInt(document.getElementById("lc-date-d")?.value) || 1, 1, 31);
-        s.worldDate.hour = clamp(parseInt(document.getElementById("lc-date-h")?.value) || 12, 0, 23);
-        saveSettingsDebounced(); renderDashboard();
-        toastr.info("Дата обновлена: " + formatDate(s.worldDate));
-    });
-
-    document.getElementById("lc-date-plus1")?.addEventListener("click", () => {
-        TimeParser.apply(1);
-        document.getElementById("lc-date-y").value = s.worldDate.year;
-        document.getElementById("lc-date-m").value = s.worldDate.month;
-        document.getElementById("lc-date-d").value = s.worldDate.day;
-        renderDashboard(); rebuildUI();
-    });
-
-    document.getElementById("lc-date-plus7")?.addEventListener("click", () => {
-        TimeParser.apply(7);
-        document.getElementById("lc-date-y").value = s.worldDate.year;
-        document.getElementById("lc-date-m").value = s.worldDate.month;
-        document.getElementById("lc-date-d").value = s.worldDate.day;
-        renderDashboard(); rebuildUI();
-    });
-
-    document.getElementById("lc-date-frozen")?.addEventListener("change", function() {
-        s.worldDate.frozen = this.checked; saveSettingsDebounced(); renderDashboard();
-    });
-
-    // Settings: Prompt injection
+    // Settings checkboxes
+    const checks = { "lc-auto-sync":"autoSyncCharacters", "lc-auto-parse":"autoParseCharInfo", "lc-parse-chat":"parseFullChat", "lc-auto-detect":"autoDetectIntimacy", "lc-auto-roll":"autoRollOnSex", "lc-show-widget":"showStatusWidget", "lc-auto-time":"autoTimeProgress", "lc-time-confirm":"timeParserConfirmation" };
+    for (const [id, key] of Object.entries(checks)) document.getElementById(id)?.addEventListener("change", function() { s[key] = this.checked; saveSettingsDebounced(); });
+    const mods = { "lc-mod-cycle":"cycle", "lc-mod-preg":"pregnancy", "lc-mod-labor":"labor", "lc-mod-baby":"baby", "lc-mod-intim":"intimacy" };
+    for (const [id, key] of Object.entries(mods)) document.getElementById(id)?.addEventListener("change", function() { s.modules[key] = this.checked; saveSettingsDebounced(); });
+    document.getElementById("lc-mod-au")?.addEventListener("change", function() { s.modules.auOverlay = this.checked; saveSettingsDebounced(); renderAU(); });
     document.getElementById("lc-prompt-on")?.addEventListener("change", function() { s.promptInjectionEnabled = this.checked; saveSettingsDebounced(); });
     document.getElementById("lc-prompt-pos")?.addEventListener("change", function() { s.promptInjectionPosition = this.value; saveSettingsDebounced(); });
     document.getElementById("lc-prompt-detail")?.addEventListener("change", function() { s.promptInjectionDetail = this.value; saveSettingsDebounced(); });
+    document.getElementById("lc-au-preset")?.addEventListener("change", function() { s.auPreset = this.value; saveSettingsDebounced(); renderAU(); });
 
-    // Settings: AU preset
-    document.getElementById("lc-au-preset")?.addEventListener("change", function() {
-        s.auPreset = this.value; saveSettingsDebounced();
-        toggleAUSections();
-    });
-
-    // AU: Omegaverse settings
-    document.getElementById("lc-au-heat-cycle")?.addEventListener("change", function() { s.auSettings.omegaverse.heatCycleLength = parseInt(this.value); saveSettingsDebounced(); });
-    document.getElementById("lc-au-heat-dur")?.addEventListener("change", function() { s.auSettings.omegaverse.heatDuration = parseInt(this.value); saveSettingsDebounced(); });
-    document.getElementById("lc-au-heat-fert")?.addEventListener("change", function() { s.auSettings.omegaverse.heatFertilityBonus = parseFloat(this.value); saveSettingsDebounced(); });
-    document.getElementById("lc-au-rut-dur")?.addEventListener("change", function() { s.auSettings.omegaverse.rutDuration = parseInt(this.value); saveSettingsDebounced(); });
-    document.getElementById("lc-au-knot-dur")?.addEventListener("change", function() { s.auSettings.omegaverse.knotDurationMin = parseInt(this.value); saveSettingsDebounced(); });
-    document.getElementById("lc-au-preg-weeks")?.addEventListener("change", function() { s.auSettings.omegaverse.pregnancyWeeks = parseInt(this.value); saveSettingsDebounced(); });
-    document.getElementById("lc-au-knot")?.addEventListener("change", function() { s.auSettings.omegaverse.knotEnabled = this.checked; saveSettingsDebounced(); });
-    document.getElementById("lc-au-bond")?.addEventListener("change", function() { s.auSettings.omegaverse.bondingEnabled = this.checked; saveSettingsDebounced(); });
-    document.getElementById("lc-au-suppress")?.addEventListener("change", function() { s.auSettings.omegaverse.suppressantsAvailable = this.checked; saveSettingsDebounced(); });
-    document.getElementById("lc-au-mpreg")?.addEventListener("change", function() { s.auSettings.omegaverse.maleOmegaPregnancy = this.checked; saveSettingsDebounced(); });
-
-    // AU: Fantasy settings
-    document.getElementById("lc-au-f-human")?.addEventListener("change", function() { s.auSettings.fantasy.pregnancyByRace.human = parseInt(this.value); saveSettingsDebounced(); });
-    document.getElementById("lc-au-f-elf")?.addEventListener("change", function() { s.auSettings.fantasy.pregnancyByRace.elf = parseInt(this.value); saveSettingsDebounced(); });
-    document.getElementById("lc-au-f-dwarf")?.addEventListener("change", function() { s.auSettings.fantasy.pregnancyByRace.dwarf = parseInt(this.value); saveSettingsDebounced(); });
-    document.getElementById("lc-au-f-orc")?.addEventListener("change", function() { s.auSettings.fantasy.pregnancyByRace.orc = parseInt(this.value); saveSettingsDebounced(); });
-    document.getElementById("lc-au-f-halfling")?.addEventListener("change", function() { s.auSettings.fantasy.pregnancyByRace.halfling = parseInt(this.value); saveSettingsDebounced(); });
-    document.getElementById("lc-au-f-features")?.addEventListener("change", function() { s.auSettings.fantasy.nonHumanFeatures = this.checked; saveSettingsDebounced(); });
-    document.getElementById("lc-au-f-magic")?.addEventListener("change", function() { s.auSettings.fantasy.magicalComplications = this.checked; saveSettingsDebounced(); });
-
-    // AU: Scifi settings
-    document.getElementById("lc-au-s-artwomb")?.addEventListener("change", function() { s.auSettings.scifi.artificialWomb = this.checked; saveSettingsDebounced(); });
-    document.getElementById("lc-au-s-genetic")?.addEventListener("change", function() { s.auSettings.scifi.geneticModification = this.checked; saveSettingsDebounced(); });
-    document.getElementById("lc-au-s-accel")?.addEventListener("change", function() { s.auSettings.scifi.acceleratedGrowth = this.checked; saveSettingsDebounced(); });
+    // Date
+    document.getElementById("lc-date-apply")?.addEventListener("click", () => { s.worldDate.year = parseInt(document.getElementById("lc-date-y")?.value)||2025; s.worldDate.month = clamp(parseInt(document.getElementById("lc-date-m")?.value)||1,1,12); s.worldDate.day = clamp(parseInt(document.getElementById("lc-date-d")?.value)||1,1,31); s.worldDate.hour = clamp(parseInt(document.getElementById("lc-date-h")?.value)||12,0,23); saveSettingsDebounced(); renderDash(); });
+    document.getElementById("lc-date-plus1")?.addEventListener("click", () => { TimeParser.apply(1); rebuildUI(); });
+    document.getElementById("lc-date-plus7")?.addEventListener("click", () => { TimeParser.apply(7); rebuildUI(); });
+    document.getElementById("lc-date-frozen")?.addEventListener("change", function() { s.worldDate.frozen = this.checked; saveSettingsDebounced(); });
 
     // Export/Import/Reset
-    document.getElementById("lc-export")?.addEventListener("click", () => {
-        downloadJSON(extension_settings[extensionName], "lifecycle_backup_" + Date.now() + ".json");
-        toastr.info("Экспорт завершён!");
-    });
-
-    document.getElementById("lc-import")?.addEventListener("click", () => {
-        uploadJSON(data => {
-            extension_settings[extensionName] = deepMerge(defaultSettings, data);
-            saveSettingsDebounced();
-            document.getElementById("lifecycle-panel")?.remove();
-            init();
-            toastr.success("Импорт завершён!");
-        });
-    });
-
-    document.getElementById("lc-reset")?.addEventListener("click", () => {
-        if (!confirm("Сбросить ВСЕ данные LifeCycle? Это необратимо!")) return;
-        extension_settings[extensionName] = JSON.parse(JSON.stringify(defaultSettings));
-        saveSettingsDebounced();
-        document.getElementById("lifecycle-panel")?.remove();
-        init();
-        toastr.warning("Данные сброшены!");
-    });
-}
-
-function toggleAUSections() {
-    const s = extension_settings[extensionName];
-    const show = s.modules.auOverlay;
-    document.querySelector(".lc-au-omegaverse-section")?.setAttribute("style", show && s.auPreset === "omegaverse" ? "" : "display:none");
-    document.querySelector(".lc-au-fantasy-section")?.setAttribute("style", show && s.auPreset === "fantasy" ? "" : "display:none");
-    document.querySelector(".lc-au-scifi-section")?.setAttribute("style", show && s.auPreset === "scifi" ? "" : "display:none");
+    document.getElementById("lc-export")?.addEventListener("click", () => downloadJSON(s, "lifecycle_"+Date.now()+".json"));
+    document.getElementById("lc-import")?.addEventListener("click", () => uploadJSON(d => { extension_settings[extensionName] = deepMerge(defaultSettings, d); saveSettingsDebounced(); document.getElementById("lifecycle-panel")?.remove(); init(); }));
+    document.getElementById("lc-reset")?.addEventListener("click", () => { if (!confirm("СБРОС?")) return; extension_settings[extensionName] = JSON.parse(JSON.stringify(defaultSettings)); saveSettingsDebounced(); document.getElementById("lifecycle-panel")?.remove(); init(); });
 }
 
 // ==========================================
-// MESSAGE HOOKS (auto-detect sex, auto-time, widget, prompt injection)
+// MESSAGE HOOKS
 // ==========================================
 
-function onMessageReceived(messageIdx) {
-    const s = extension_settings[extensionName];
-    if (!s.enabled) return;
+function onMsg(idx) {
+    const s = extension_settings[extensionName]; if (!s.enabled) return;
+    const ctx = getContext(); if (!ctx?.chat || idx < 0) return;
+    const msg = ctx.chat[idx]; if (!msg?.mes || msg.is_user) return;
+    const text = msg.mes;
 
-    const ctx = getContext();
-    if (!ctx.chat || messageIdx < 0 || messageIdx >= ctx.chat.length) return;
-    const msg = ctx.chat[messageIdx];
-    if (!msg || msg.is_user) return;
+    if (s.autoSyncCharacters) syncChars();
+    if (s.autoTimeProgress && !s.worldDate.frozen) { const d = TimeParser.parse(text); if (d) { if (s.timeParserConfirmation) { if (confirm("LifeCycle: +" + d + " дн.?")) { TimeParser.apply(d); rebuildUI(); } } else { TimeParser.apply(d); rebuildUI(); } } }
 
-    const text = msg.mes || "";
-
-    // Auto time parsing
-    if (s.autoTimeProgress && !s.worldDate.frozen) {
-        const days = TimeParser.parse(text);
-        if (days) {
-            if (s.timeParserConfirmation) {
-                if (confirm("Обнаружен сдвиг времени: +" + days + " дн. Применить?")) {
-                    TimeParser.apply(days);
-                    rebuildUI();
-                }
-            } else {
-                TimeParser.apply(days);
-                rebuildUI();
-            }
-        }
-    }
-
-    // Auto-detect intimacy
     if (s.autoDetectIntimacy && s.modules.intimacy) {
-        syncCharacters();
-        const detection = IntimacyDetector.detect(text, s.characters);
-
-        if (detection && detection.detected) {
-            IntimacyManager.log({
-                participants: detection.participants,
-                type: detection.actType,
-                ejaculation: detection.ejaculation,
-                contraception: detection.hasContraception ? "да" : (detection.noContraception ? "нет" : "не указано"),
-                autoDetected: true,
-            });
-
-            if (s.autoRollOnSex && detection.target) {
-                // Only roll if vaginal + inside ejaculation (or unknown for vaginal)
-                const shouldRoll = detection.actType === "vaginal" &&
-                    (detection.ejaculation === "inside" || detection.ejaculation === "unknown");
-
-                if (shouldRoll) {
-                    const result = IntimacyManager.roll(detection.target, {
-                        participants: detection.participants,
-                        type: detection.actType,
-                        ejaculation: detection.ejaculation,
-                        hasContraception: detection.hasContraception,
-                        noContraception: detection.noContraception,
-                        autoDetected: true,
-                    });
-                    showDicePopup(result, detection.target, true);
-                    renderDiceLog();
-                }
-            }
-
-            renderIntimLog();
-        }
-    }
-
-    // Status widget
-    if (s.showStatusWidget) {
-        StatusWidget.inject(messageIdx);
-    }
-
-    renderDashboard();
-}
-
-function onUserMessageSent(messageIdx) {
-    const s = extension_settings[extensionName];
-    if (!s.enabled) return;
-
-    const ctx = getContext();
-    if (!ctx.chat || messageIdx < 0 || messageIdx >= ctx.chat.length) return;
-    const msg = ctx.chat[messageIdx];
-    if (!msg || !msg.is_user) return;
-
-    const text = msg.mes || "";
-
-    // Auto time parsing from user messages too
-    if (s.autoTimeProgress && !s.worldDate.frozen) {
-        const days = TimeParser.parse(text);
-        if (days) {
-            if (s.timeParserConfirmation) {
-                if (confirm("Обнаружен сдвиг времени: +" + days + " дн. Применить?")) {
-                    TimeParser.apply(days);
-                    rebuildUI();
-                }
-            } else {
-                TimeParser.apply(days);
-                rebuildUI();
+        const det = IntimacyDetector.detect(text, s.characters);
+        if (det?.detected) {
+            IntimacyManager.log({ parts: det.parts, type: det.type, ejac: det.ejac, auto: true });
+            if (s.autoRollOnSex && det.target && det.type === "vaginal" && (det.ejac === "inside" || det.ejac === "unknown")) {
+                const r = IntimacyManager.roll(det.target, { parts: det.parts, type: det.type, ejac: det.ejac, contra: det.contra, noCon: det.noCon, auto: true });
+                showDicePopup(r, det.target, true);
             }
         }
     }
-}
 
-// ==========================================
-// PROMPT INJECTION HOOK
-// ==========================================
-
-function onPromptGenerate(eventData) {
-    const s = extension_settings[extensionName];
-    if (!s.enabled || !s.promptInjectionEnabled) return;
-
-    syncCharacters();
-    const prompt = PromptInjector.generate();
-    if (!prompt) return;
-
-    const pos = s.promptInjectionPosition;
-
-    if (pos === "system") {
-        if (eventData.systemPrompt !== undefined) {
-            eventData.systemPrompt += "\n\n" + prompt;
-        }
-    } else if (pos === "authornote") {
-        if (eventData.extensionPrompts !== undefined) {
-            const anKey = Object.keys(eventData.extensionPrompts).find(k => k.includes("author") || k.includes("note"));
-            if (anKey) {
-                eventData.extensionPrompts[anKey] = (eventData.extensionPrompts[anKey] || "") + "\n\n" + prompt;
-            } else {
-                eventData.extensionPrompts["lifecycle_injection"] = prompt;
-            }
-        }
-    } else if (pos === "endofchat") {
-        if (eventData.mesExamples !== undefined) {
-            eventData.mesExamples += "\n\n" + prompt;
-        }
-    }
-
-    // Fallback: try to use chat_completion_prompt_manager if available
-    try {
-        if (typeof SillyTavern !== "undefined" && SillyTavern.getContext) {
-            const stCtx = SillyTavern.getContext();
-            if (stCtx && typeof stCtx.setExtensionPrompt === "function") {
-                const insertAt = pos === "system" ? 0 : pos === "authornote" ? 1 : 2;
-                stCtx.setExtensionPrompt(extensionName, prompt, insertAt, 0);
-            }
-        }
-    } catch (e) { /* silently fail */ }
+    if (s.showStatusWidget) StatusWidget.inject(idx);
+    renderDash();
 }
 
 // ==========================================
@@ -2417,70 +1479,44 @@ function onPromptGenerate(eventData) {
 // ==========================================
 
 async function init() {
-    // Merge settings
-    if (!extension_settings[extensionName]) {
-        extension_settings[extensionName] = JSON.parse(JSON.stringify(defaultSettings));
-    } else {
-        extension_settings[extensionName] = deepMerge(
-            JSON.parse(JSON.stringify(defaultSettings)),
-            extension_settings[extensionName]
-        );
-    }
+    if (!extension_settings[extensionName]) extension_settings[extensionName] = JSON.parse(JSON.stringify(defaultSettings));
+    else extension_settings[extensionName] = deepMerge(JSON.parse(JSON.stringify(defaultSettings)), extension_settings[extensionName]);
 
-    // Load CSS
-    const cssLink = document.createElement("link");
-    cssLink.rel = "stylesheet";
-    cssLink.href = extensionFolderPath + "/style.css";
-    document.head.appendChild(cssLink);
-
-    // Remove old panel if exists
     document.getElementById("lifecycle-panel")?.remove();
+    const target = document.getElementById("extensions_settings2") || document.getElementById("extensions_settings");
+    if (target) target.insertAdjacentHTML("beforeend", generateHTML());
 
-    // Insert HTML into extensions panel
-    const settingsContainer = document.getElementById("extensions_settings2") || document.getElementById("extensions_settings");
-    if (settingsContainer) {
-        settingsContainer.insertAdjacentHTML("beforeend", generateHTML());
-    }
+    syncChars(); bindAll(); rebuildUI(); renderAU();
 
-    // Sync characters
-    syncCharacters();
-
-    // Bind events
-    bindEvents();
-
-    // Initial render
-    rebuildUI();
-    toggleAUSections();
-
-    // Subscribe to events
     if (eventSource) {
-        eventSource.on(event_types.MESSAGE_RECEIVED, (messageIdx) => {
-            onMessageReceived(messageIdx);
-        });
-
-        eventSource.on(event_types.MESSAGE_SENT, (messageIdx) => {
-            onUserMessageSent(messageIdx);
-        });
-
-        // Prompt injection
-        eventSource.on(event_types.GENERATE_BEFORE_COMBINE_PROMPTS, (eventData) => {
-            onPromptGenerate(eventData);
-        });
-
-        // Character change
-        eventSource.on(event_types.CHAT_CHANGED, () => {
-            syncCharacters();
-            rebuildUI();
+        eventSource.on(event_types.MESSAGE_RECEIVED, onMsg);
+        eventSource.on(event_types.CHAT_CHANGED, () => { syncChars(); rebuildUI(); });
+        eventSource.on(event_types.GENERATE_BEFORE_COMBINE_PROMPTS, (data) => {
+            const s = extension_settings[extensionName]; if (!s.enabled || !s.promptInjectionEnabled) return;
+            const inj = PromptInjector.gen(); if (!inj) return;
+            if (s.promptInjectionPosition === "system" && data.systemPrompt !== undefined) data.systemPrompt += "\n\n" + inj;
+            else if (s.promptInjectionPosition === "authornote") data.authorNote = (data.authorNote || "") + "\n\n" + inj;
+            else if (data.chat && Array.isArray(data.chat)) data.chat.push({ role: "system", content: inj });
         });
     }
-
-    console.log("[LifeCycle v0.4.0] Initialized successfully!");
+    console.log("[LifeCycle v0.5.0] Loaded!");
 }
 
-// ==========================================
-// ENTRY POINT
-// ==========================================
+jQuery(async () => { await init(); });
 
-jQuery(async () => {
-    await init();
-});
+window.LifeCycle = {
+    getSettings: () => extension_settings[extensionName],
+    sync: syncChars,
+    advanceTime: d => { TimeParser.apply(d); rebuildUI(); },
+    rollDice: (c, d) => IntimacyManager.roll(c, d),
+    getStatus: n => {
+        const p = extension_settings[extensionName].characters[n]; if (!p) return null;
+        const r = { name: n };
+        if (p.cycle?.enabled) { const cm = new CycleManager(p); r.cycle = { phase: cm.label(cm.phase()), fertility: cm.fertility() }; }
+        if (p.pregnancy?.active) r.pregnancy = { week: p.pregnancy.week, trimester: new PregnancyManager(p).trimester() };
+        if (p.heat?.active) r.heat = { day: p.heat.currentDay, phase: new HeatRutManager(p).heatPhase() };
+        if (p.rut?.active) r.rut = { day: p.rut.currentDay, phase: new HeatRutManager(p).rutPhase() };
+        if (p.babies?.length > 0) r.babies = p.babies.map(b => ({ name: b.name, age: new BabyManager(b).age() }));
+        return r;
+    },
+};
