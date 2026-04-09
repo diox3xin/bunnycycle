@@ -2352,86 +2352,311 @@ function saveEditor() {
 }
 
 // ========================
-// STATUS WIDGET
+// STATUS WIDGET (DETAILED + COLLAPSIBLE)
 // ========================
 function generateWidget() {
     var s = S();
     if (!s.enabled || !s.showStatusWidget) return "";
 
-    var charEntries = Object.keys(s.characters).filter(function (n) { return s.characters[n]._enabled; });
+    var charEntries = Object.keys(s.characters).filter(function (n) {
+        return s.characters[n]._enabled;
+    });
     if (charEntries.length === 0) return "";
 
-    var h = '<div class="lc-status-widget"><div class="lc-sw-header"><span>\uD83D\uDC30 BunnyCycle</span></div><div class="lc-sw-body">';
-    h += '<div class="lc-sw-date">' + formatDate(s.worldDate) + '</div>';
+    // Check if any character has anything to show
+    var hasContent = false;
+    for (var check = 0; check < charEntries.length; check++) {
+        var cp = s.characters[charEntries[check]];
+        if (s.modules.cycle && cp.cycle && cp.cycle.enabled && !(cp.pregnancy && cp.pregnancy.active)) hasContent = true;
+        if (s.modules.pregnancy && cp.pregnancy && cp.pregnancy.active) hasContent = true;
+        if (s.modules.labor && cp.labor && cp.labor.active) hasContent = true;
+        if (cp.heat && cp.heat.active) hasContent = true;
+        if (cp.rut && cp.rut.active) hasContent = true;
+        if (cp.oviposition && cp.oviposition.active) hasContent = true;
+        if (s.modules.baby && cp.babies && cp.babies.length > 0) hasContent = true;
+    }
+    if (!hasContent) return "";
+
+    var widgetId = "lc-widget-" + Date.now();
+
+    var h = [];
+    h.push('<div class="lc-status-widget">');
+
+    // Header (clickable to toggle)
+    h.push('<div class="lc-sw-header" onclick="');
+    h.push("var body=this.nextElementSibling;var arrow=this.querySelector('.lc-sw-arrow');");
+    h.push("if(body.style.display==='none'){body.style.display='block';arrow.textContent='\\u25BC';}");
+    h.push("else{body.style.display='none';arrow.textContent='\\u25B6';}");
+    h.push('">');
+    h.push('<span>🐰 BunnyCycle</span>');
+    h.push('<span class="lc-sw-arrow">▼</span>');
+    h.push('</div>');
+
+    // Body (collapsible)
+    h.push('<div class="lc-sw-body">');
+    h.push('<div class="lc-sw-date">' + formatDate(s.worldDate) + '</div>');
 
     for (var i = 0; i < charEntries.length; i++) {
         var name = charEntries[i];
         var p = s.characters[name];
         var sexIcon = p.bioSex === "F" ? "\u2640" : "\u2642";
-        h += '<div class="lc-sw-char"><div class="lc-sw-char-name">' + sexIcon + ' ' + name;
-        if (p.secondarySex) h += ' <span class="lc-sw-sec-badge">' + p.secondarySex + '</span>';
-        h += '</div>';
+        var hasAnyBlock = false;
 
+        // Check if this character has anything to display
+        var charHtml = [];
+
+        // === LABOR (highest priority) ===
         if (s.modules.labor && p.labor && p.labor.active) {
-            h += '<div class="lc-sw-block lc-sw-labor-block"><div class="lc-sw-block-title">\uD83C\uDFE5 ' + LABOR_LABELS[p.labor.stage] + '</div>';
-            h += '<div class="lc-sw-row">' + p.labor.dilation + '/10 \u0441\u043C</div></div>';
-        } else if (s.modules.pregnancy && p.pregnancy && p.pregnancy.active) {
+            hasAnyBlock = true;
+            var lm = new LaborManager(p);
+            var lProg = Math.round((p.labor.dilation / 10) * 100);
+            charHtml.push('<div class="lc-sw-detail-block lc-sw-labor-block">');
+            charHtml.push('<div class="lc-sw-detail-title">🏥 РОДЫ</div>');
+            charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Стадия:</span> <strong>' + LABOR_LABELS[p.labor.stage] + '</strong></div>');
+            charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Раскрытие:</span> ' + p.labor.dilation + ' / 10 см</div>');
+            charHtml.push('<div class="lc-sw-mini-progress"><div class="lc-sw-mini-fill labor" style="width:' + lProg + '%"></div></div>');
+            charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Время:</span> ' + p.labor.hoursElapsed + ' ч</div>');
+            charHtml.push('<div class="lc-sw-detail-desc">' + lm.description() + '</div>');
+            if (p.labor.babiesDelivered > 0) {
+                charHtml.push('<div class="lc-sw-detail-row">👶 Родилось: ' + p.labor.babiesDelivered + ' / ' + p.labor.totalBabies + '</div>');
+            }
+            charHtml.push('</div>');
+        }
+
+        // === PREGNANCY ===
+        if (s.modules.pregnancy && p.pregnancy && p.pregnancy.active && !(p.labor && p.labor.active)) {
+            hasAnyBlock = true;
             var pm = new PregManager(p);
-            h += '<div class="lc-sw-block lc-sw-preg-block"><div class="lc-sw-block-title">\uD83E\uDD30 W' + p.pregnancy.week + '/' + p.pregnancy.maxWeeks + '</div>';
-            h += '<div class="lc-sw-row">' + pm.size() + '</div></div>';
+            var pr = p.pregnancy;
+            var pProg = Math.round((pr.week / pr.maxWeeks) * 100);
+            var trimLabels = ["", "I (1-12 нед.)", "II (13-27 нед.)", "III (28+ нед.)"];
+
+            charHtml.push('<div class="lc-sw-detail-block lc-sw-preg-block">');
+            charHtml.push('<div class="lc-sw-detail-title">🤰 БЕРЕМЕННОСТЬ</div>');
+            charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Срок:</span> <strong>' + pr.week + ' / ' + pr.maxWeeks + ' недель</strong></div>');
+            charHtml.push('<div class="lc-sw-mini-progress"><div class="lc-sw-mini-fill preg" style="width:' + pProg + '%"></div></div>');
+            charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Триместр:</span> ' + trimLabels[pm.trimester()] + '</div>');
+            charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Размер плода:</span> ' + pm.size() + '</div>');
+            charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Шевеления:</span> ' + pm.movements() + '</div>');
+
+            if (pr.fetusCount > 1) {
+                charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Количество плодов:</span> ' + pr.fetusCount + '</div>');
+            }
+            if (pr.father) {
+                charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Отец:</span> ' + pr.father + '</div>');
+            }
+
+            var pregSym = pm.symptoms();
+            if (pregSym.length > 0) {
+                charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Симптомы:</span> ' + pregSym.join(", ") + '</div>');
+            }
+            if (pr.complications && pr.complications.length > 0) {
+                charHtml.push('<div class="lc-sw-detail-row lc-sw-warn"><span class="lc-sw-detail-label">⚠️ Осложнения:</span> ' + pr.complications.join(", ") + '</div>');
+            }
+            charHtml.push('</div>');
         }
 
-        if (p.heat && p.heat.active) {
-            h += '<div class="lc-sw-block lc-sw-heat-block"><div class="lc-sw-block-title">\uD83D\uDD25 Течка</div></div>';
-        }
-        if (p.rut && p.rut.active) {
-            h += '<div class="lc-sw-block lc-sw-rut-block"><div class="lc-sw-block-title">\uD83D\uDCA2 Гон</div></div>';
+        // === HEAT (Omega) ===
+        if (s.modules.auOverlay && s.auPreset === "omegaverse" && p.secondarySex === "omega" && p.heat) {
+            var hr = new HeatRutManager(p);
+            var hPh = hr.heatPhase();
+            if (p.heat.active || hPh === "preHeat") {
+                hasAnyBlock = true;
+                charHtml.push('<div class="lc-sw-detail-block lc-sw-heat-block">');
+                charHtml.push('<div class="lc-sw-detail-title">🔥 ' + hr.heatLabel(hPh) + '</div>');
+                if (p.heat.active) {
+                    charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">День:</span> ' + p.heat.currentDay + ' / ' + p.heat.duration + '</div>');
+                    var hProg = Math.round((p.heat.currentDay / p.heat.duration) * 100);
+                    charHtml.push('<div class="lc-sw-mini-progress"><div class="lc-sw-mini-fill heat" style="width:' + hProg + '%"></div></div>');
+
+                    if (hPh === "heat") {
+                        charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Интенсивность:</span> <strong>Пик</strong></div>');
+                        charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Симптомы:</span> жар, самосмазка, феромоны, помутнение сознания</div>');
+                        charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Либидо:</span> <strong>экстремальное</strong></div>');
+                        charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Фертильность:</span> <span class="lc-sw-fert peak">ПИКОВАЯ</span></div>');
+                    } else if (hPh === "preHeat") {
+                        charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Симптомы:</span> жар, беспокойство, повышенная чувствительность</div>');
+                    } else {
+                        charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Симптомы:</span> слабость, сонливость, восстановление</div>');
+                    }
+                } else {
+                    charHtml.push('<div class="lc-sw-detail-row">Приближается через ~' + hr.heatDaysLeft() + ' дн.</div>');
+                    charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Симптомы:</span> лёгкий жар, нервозность</div>');
+                }
+                if (p.heat.onSuppressants) {
+                    charHtml.push('<div class="lc-sw-detail-row">💊 На супрессантах</div>');
+                }
+                charHtml.push('</div>');
+            }
         }
 
+        // === RUT (Alpha) ===
+        if (s.modules.auOverlay && s.auPreset === "omegaverse" && p.secondarySex === "alpha" && p.rut) {
+            var hrr = new HeatRutManager(p);
+            var rPh = hrr.rutPhase();
+            if (p.rut.active || rPh === "preRut") {
+                hasAnyBlock = true;
+                charHtml.push('<div class="lc-sw-detail-block lc-sw-rut-block">');
+                charHtml.push('<div class="lc-sw-detail-title">💢 ' + hrr.rutLabel(rPh) + '</div>');
+                if (p.rut.active) {
+                    charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">День:</span> ' + p.rut.currentDay + ' / ' + p.rut.duration + '</div>');
+                    var rProg = Math.round((p.rut.currentDay / p.rut.duration) * 100);
+                    charHtml.push('<div class="lc-sw-mini-progress"><div class="lc-sw-mini-fill rut" style="width:' + rProg + '%"></div></div>');
+
+                    if (rPh === "rut") {
+                        charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Состояние:</span> <strong>Пик агрессии</strong></div>');
+                        charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Симптомы:</span> агрессия, набухание узла, неконтролируемое влечение, территориальность</div>');
+                    } else if (rPh === "preRut") {
+                        charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Симптомы:</span> раздражительность, повышенная агрессия</div>');
+                    } else {
+                        charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Симптомы:</span> усталость, апатия, восстановление</div>');
+                    }
+                } else {
+                    charHtml.push('<div class="lc-sw-detail-row">Приближается через ~' + hrr.rutDaysLeft() + ' дн.</div>');
+                }
+                charHtml.push('</div>');
+            }
+        }
+
+        // === OVIPOSITION ===
+        if (s.auSettings.oviposition && s.auSettings.oviposition.enabled && p.oviposition && p.oviposition.active) {
+            hasAnyBlock = true;
+            var om = new OviManager(p);
+            var oProg = om.progress();
+            charHtml.push('<div class="lc-sw-detail-block lc-sw-ovi-block">');
+            charHtml.push('<div class="lc-sw-detail-title">🥚 ' + (OVI_PHASES[p.oviposition.phase] || p.oviposition.phase) + '</div>');
+            charHtml.push('<div class="lc-sw-mini-progress"><div class="lc-sw-mini-fill ovi" style="width:' + oProg + '%"></div></div>');
+            charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Яиц:</span> ' + p.oviposition.eggCount + ' (оплодотворённых: ' + p.oviposition.fertilizedCount + ')</div>');
+
+            if (p.oviposition.phase === "carrying") {
+                charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Вынашивание:</span> день ' + p.oviposition.gestationDay + ' / ' + p.oviposition.gestationMax + '</div>');
+                charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Симптомы:</span> тяжесть, давление внизу живота, увеличение</div>');
+            } else if (p.oviposition.phase === "laying") {
+                charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Откладывание:</span> день ' + p.oviposition.layingDay + ' / ' + p.oviposition.layingMax + '</div>');
+                charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Симптомы:</span> сильные спазмы, расширение родовых путей</div>');
+            } else if (p.oviposition.phase === "incubating") {
+                charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Инкубация:</span> день ' + p.oviposition.incubationDay + ' / ' + p.oviposition.incubationMax + '</div>');
+                charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Симптомы:</span> инстинкт защиты гнезда, повышенная температура</div>');
+            } else if (p.oviposition.phase === "hatched") {
+                charHtml.push('<div class="lc-sw-detail-row">🐣 Вылупление завершено!</div>');
+            }
+            charHtml.push('</div>');
+        }
+
+        // === CYCLE ===
         if (s.modules.cycle && p.cycle && p.cycle.enabled && !(p.pregnancy && p.pregnancy.active) && !(p.labor && p.labor.active)) {
+            hasAnyBlock = true;
             var cm = new CycleManager(p);
+            var phase = cm.phase();
             var fert = cm.fertility();
             var fertCls = "low";
             if (fert >= 0.2) fertCls = "peak";
             else if (fert >= 0.1) fertCls = "high";
             else if (fert >= 0.05) fertCls = "med";
-            h += '<div class="lc-sw-block lc-sw-cycle-block"><div class="lc-sw-row">' + cm.emoji(cm.phase()) + ' ' + cm.label(cm.phase()) + ' <span class="lc-sw-fert ' + fertCls + '">' + Math.round(fert * 100) + '%</span></div></div>';
-        }
 
-        if (s.modules.baby && p.babies && p.babies.length > 0) {
-            h += '<div class="lc-sw-block lc-sw-baby-block">';
-            for (var j = 0; j < p.babies.length; j++) {
-                var b = p.babies[j];
-                var bSex = b.sex === "M" ? "\u2642" : "\u2640";
-                h += '<div class="lc-sw-baby-row">' + bSex + ' ' + (b.name || "?") + ' (' + new BabyManager(b).age() + ')</div>';
+            var phaseDescriptions = {
+                menstruation: "Первые дни цикла. Отторжение эндометрия, менструальное кровотечение. Энергия и настроение снижены.",
+                follicular: "Фолликулы созревают в яичниках. Уровень эстрогена растёт. Энергия восстанавливается, настроение улучшается.",
+                ovulation: "Яйцеклетка выходит из фолликула. Пик фертильности. Повышенное либидо и привлекательность.",
+                luteal: "Жёлтое тело вырабатывает прогестерон. Возможны перепады настроения, вздутие, чувствительность груди (ПМС)."
+            };
+
+            charHtml.push('<div class="lc-sw-detail-block lc-sw-cycle-block">');
+            charHtml.push('<div class="lc-sw-detail-title">' + cm.emoji(phase) + ' ' + cm.label(phase) + '</div>');
+            charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">День цикла:</span> ' + p.cycle.currentDay + ' / ' + p.cycle.length + '</div>');
+            charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Фертильность:</span> <span class="lc-sw-fert ' + fertCls + '">' + Math.round(fert * 100) + '%</span></div>');
+            charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Либидо:</span> ' + cm.libido() + '</div>');
+            charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Выделения:</span> ' + (new CycleManager(p)).discharge() + '</div>');
+
+            var cycSym = cm.symptoms();
+            if (cycSym.length > 0) {
+                charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Симптомы:</span> ' + cycSym.join(", ") + '</div>');
             }
-            h += '</div>';
+
+            if (p.contraception && p.contraception !== "none") {
+                var contraLabels = { condom: "Презерватив", pill: "Таблетки", iud: "ВМС", withdrawal: "ППА" };
+                charHtml.push('<div class="lc-sw-detail-row">💊 Контрацепция: ' + (contraLabels[p.contraception] || p.contraception) + '</div>');
+            }
+
+            charHtml.push('<div class="lc-sw-detail-desc">' + (phaseDescriptions[phase] || "") + '</div>');
+            charHtml.push('</div>');
         }
 
-        h += '</div>';
+        // === BABIES ===
+        if (s.modules.baby && p.babies && p.babies.length > 0) {
+            hasAnyBlock = true;
+            charHtml.push('<div class="lc-sw-detail-block lc-sw-baby-block">');
+            charHtml.push('<div class="lc-sw-detail-title">👶 Дети (' + p.babies.length + ')</div>');
+            for (var bi = 0; bi < p.babies.length; bi++) {
+                var baby = p.babies[bi];
+                var bm = new BabyManager(baby);
+                var bSex = baby.sex === "M" ? "\u2642" : "\u2640";
+                charHtml.push('<div class="lc-sw-baby-card">');
+                charHtml.push('<div class="lc-sw-detail-row"><strong>' + bSex + ' ' + (baby.name || "Без имени") + '</strong> | ' + bm.age() + ' | ' + baby.state + '</div>');
+                charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Мать:</span> ' + baby.mother + ' | <span class="lc-sw-detail-label">Отец:</span> ' + baby.father + '</div>');
+
+                var details = [];
+                if (baby.eyeColor) details.push("👁️ " + baby.eyeColor);
+                if (baby.hairColor) details.push("💇 " + baby.hairColor);
+                if (baby.birthWeight) details.push("⚖️ " + Math.round(baby.currentWeight) + " г");
+                if (baby.secondarySex) details.push(baby.secondarySex);
+
+                if (details.length > 0) {
+                    charHtml.push('<div class="lc-sw-detail-row">' + details.join(" | ") + '</div>');
+                }
+
+                var milestones = bm.milestones ? bm.milestones() : [];
+                if (milestones.length > 0) {
+                    charHtml.push('<div class="lc-sw-detail-row"><span class="lc-sw-detail-label">Вехи:</span> ' + milestones.join(", ") + '</div>');
+                }
+                charHtml.push('</div>');
+            }
+            charHtml.push('</div>');
+        }
+
+        // Only render character if it has blocks
+        if (hasAnyBlock) {
+            h.push('<div class="lc-sw-char">');
+            h.push('<div class="lc-sw-char-name">' + sexIcon + ' ' + name);
+            if (p.secondarySex) h.push(' <span class="lc-sw-sec-badge">' + p.secondarySex + '</span>');
+            h.push('</div>');
+            for (var ci = 0; ci < charHtml.length; ci++) {
+                h.push(charHtml[ci]);
+            }
+            h.push('</div>');
+        }
     }
 
-    h += '</div></div>';
-    return h;
+    h.push('</div>'); // sw-body
+    h.push('</div>'); // widget
+    return h.join("");
 }
 
-function injectWidget(messageIndex) {
-    var s = S();
-    if (!s.enabled || !s.showStatusWidget) return;
+// discharge helper - add to CycleManager if not present
+CycleManager.prototype.discharge = function () {
+    var map = {
+        menstruation: "менструальные выделения",
+        follicular: "скудные, сухо",
+        ovulation: "обильные, прозрачные, тягучие (как яичный белок)",
+        luteal: "густые, кремообразные"
+    };
+    return map[this.phase()] || "обычные";
+};
 
-    var widgetHtml = generateWidget();
-    if (!widgetHtml) return;
-
-    setTimeout(function () {
-        var msgEl = document.querySelector('#chat .mes[mesid="' + messageIndex + '"]');
-        if (!msgEl) return;
-        var textEl = msgEl.querySelector(".mes_text");
-        if (!textEl) return;
-        var existing = textEl.querySelectorAll(".lc-status-widget");
-        for (var i = 0; i < existing.length; i++) existing[i].remove();
-        textEl.insertAdjacentHTML("beforeend", widgetHtml);
-    }, 300);
-}
+// milestones helper - add to BabyManager if not present
+BabyManager.prototype.milestones = function () {
+    var d = this.b.ageDays;
+    var result = [];
+    if (d >= 42) result.push("социальная улыбка");
+    if (d >= 90) result.push("держит голову");
+    if (d >= 150) result.push("переворачивается");
+    if (d >= 180) result.push("сидит");
+    if (d >= 270) result.push("ползает");
+    if (d >= 365) result.push("первые шаги");
+    if (d >= 450) result.push("первые слова");
+    if (d >= 730) result.push("бегает, говорит фразы");
+    return result;
+};
 
 // ========================
 // BIND EVENTS
