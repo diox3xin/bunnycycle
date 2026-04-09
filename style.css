@@ -1,39 +1,41 @@
 /* ============================================================
-   BunnyCycle v1.0.0 — style.css
-   Transparent + pink accents + clean font
+   BunnyCycle v1.0.0 — Styles
+   IIG-inspired: warm grays, pink accents, glass panels
    ============================================================ */
 
-/* ===== PANEL ===== */
+/* ---- PANEL ---- */
+
 #bunnycycle-panel {
-    background: transparent;
-    border: 1px solid rgba(240, 96, 138, 0.15);
-    border-radius: 12px;
-    margin: 8px 0;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    margin-bottom: 8px;
     overflow: hidden;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    font-size: 13px;
-    color: #ddd;
+    background: rgba(255, 255, 255, 0.01);
 }
 
 #bunnycycle-panel.collapsed .lifecycle-body {
-    display: none;
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    overflow: hidden;
 }
 
-/* ===== HEADER ===== */
+/* ---- HEADER ---- */
+
 .lifecycle-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 9px 14px;
-    background: rgba(240, 96, 138, 0.08);
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 12px;
     cursor: pointer;
     user-select: none;
-    border-bottom: 1px solid rgba(240, 96, 138, 0.12);
-    backdrop-filter: blur(4px);
+    transition: background 0.15s;
 }
 
 .lifecycle-header:hover {
-    background: rgba(240, 96, 138, 0.12);
+    background: rgba(255, 182, 193, 0.04);
 }
 
 .lifecycle-header-title {
@@ -44,23 +46,24 @@
 
 .lifecycle-header-title h3 {
     margin: 0;
-    font-size: 14px;
-    font-weight: 700;
-    color: #f0a0c0;
-    letter-spacing: 0.3px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #e8e0e0;
 }
 
 .lc-collapse-arrow {
-    color: rgba(240, 160, 192, 0.5);
-    font-size: 11px;
+    font-size: 10px;
+    color: #7a7272;
+    transition: transform 0.25s ease;
+    flex-shrink: 0;
+    width: 14px;
+    text-align: center;
 }
 
 .lc-version {
-    font-size: 10px;
-    color: rgba(240, 160, 192, 0.35);
-    background: rgba(240, 96, 138, 0.08);
-    padding: 1px 6px;
-    border-radius: 8px;
+    font-size: 9px;
+    color: #5a5252;
+    margin-left: 4px;
 }
 
 .lifecycle-header-actions {
@@ -69,12 +72,13 @@
     gap: 6px;
 }
 
-/* ===== TOGGLE SWITCH ===== */
+/* ---- TOGGLE SWITCH ---- */
+
 .lc-switch {
     position: relative;
     display: inline-block;
-    width: 36px;
-    height: 18px;
+    width: 34px;
+    height: 17px;
 }
 
 .lc-switch input {
@@ -91,41 +95,44 @@
     right: 0;
     bottom: 0;
     background: rgba(255, 255, 255, 0.08);
-    border-radius: 18px;
-    transition: 0.3s;
+    border-radius: 17px;
+    transition: 0.25s;
 }
 
 .lc-switch-slider::before {
     content: "";
     position: absolute;
-    height: 14px;
-    width: 14px;
+    height: 13px;
+    width: 13px;
     left: 2px;
     bottom: 2px;
-    background: rgba(255, 255, 255, 0.25);
+    background: #7a7272;
     border-radius: 50%;
-    transition: 0.3s;
+    transition: 0.25s;
 }
 
 .lc-switch input:checked + .lc-switch-slider {
-    background: rgba(240, 96, 138, 0.5);
+    background: rgba(255, 182, 193, 0.35);
 }
 
 .lc-switch input:checked + .lc-switch-slider::before {
-    transform: translateX(18px);
-    background: #f0a0c0;
+    transform: translateX(17px);
+    background: #ffb6c1;
 }
 
-/* ===== BODY ===== */
+/* ---- BODY ---- */
+
 .lifecycle-body {
     padding: 0;
-    max-height: 600px;
+    max-height: 2000px;
+    opacity: 1;
+    transition: max-height 0.3s ease, opacity 0.2s ease, padding 0.3s ease;
     overflow-y: auto;
     overflow-x: hidden;
 }
 
 .lifecycle-body::-webkit-scrollbar {
-    width: 4px;
+    width: 5px;
 }
 
 .lifecycle-body::-webkit-scrollbar-track {
@@ -133,25 +140,21 @@
 }
 
 .lifecycle-body::-webkit-scrollbar-thumb {
-    background: rgba(240, 96, 138, 0.2);
-    border-radius: 4px;
+    background: rgba(255, 182, 193, 0.15);
+    border-radius: 3px;
 }
 
-.lifecycle-body::-webkit-scrollbar-thumb:hover {
-    background: rgba(240, 96, 138, 0.35);
-}
+/* ---- DASHBOARD ---- */
 
-/* ===== DASHBOARD ===== */
 .lc-dashboard {
-    padding: 8px 14px;
-    background: rgba(240, 96, 138, 0.04);
-    border-bottom: 1px solid rgba(240, 96, 138, 0.08);
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .lc-dashboard-date {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.6);
+    color: #c4bcbc;
     margin-bottom: 4px;
 }
 
@@ -161,90 +164,122 @@
     gap: 6px;
     padding: 2px 0;
     font-size: 11px;
+    color: #c4bcbc;
     flex-wrap: wrap;
 }
 
 .lc-dash-name {
     font-weight: 600;
-    color: #f0a0c0;
-    min-width: 50px;
+    color: #ffb6c1;
+    min-width: 40px;
 }
 
 .lc-dash-empty,
 .lc-empty {
-    font-size: 11px;
-    color: rgba(255, 255, 255, 0.2);
+    font-size: 10px;
+    color: #5a5252;
     font-style: italic;
-    padding: 8px 0;
+    padding: 6px 0;
     text-align: center;
 }
 
-/* ===== TABS ===== */
+/* ---- TABS ---- */
+
 .lifecycle-tabs {
     display: flex;
     flex-wrap: wrap;
     gap: 0;
-    background: rgba(0, 0, 0, 0.1);
-    padding: 4px 6px 0;
-    border-bottom: 1px solid rgba(240, 96, 138, 0.08);
+    padding: 4px 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .lifecycle-tab {
     background: none;
     border: none;
-    color: rgba(255, 255, 255, 0.35);
+    color: #7a7272;
     font-size: 11px;
-    padding: 5px 7px 4px;
+    padding: 5px 6px 4px;
     cursor: pointer;
     border-bottom: 2px solid transparent;
-    transition: all 0.2s;
+    transition: all 0.15s;
     display: flex;
     align-items: center;
     gap: 2px;
     white-space: nowrap;
-    font-family: inherit;
 }
 
 .lifecycle-tab:hover {
-    color: rgba(255, 255, 255, 0.6);
+    color: #c4bcbc;
+    background: rgba(255, 182, 193, 0.03);
 }
 
 .lifecycle-tab.active {
-    color: #f0a0c0;
-    border-bottom-color: #f0608a;
+    color: #ffb6c1;
+    border-bottom-color: rgba(255, 182, 193, 0.5);
 }
 
 .tab-icon {
-    font-size: 12px;
+    font-size: 11px;
 }
 
-/* ===== TAB CONTENT ===== */
+/* ---- TAB CONTENT ---- */
+
 .lifecycle-tab-content {
     display: none;
-    padding: 10px 14px;
+    padding: 8px 12px 12px;
 }
 
 .lifecycle-tab-content.active {
     display: block;
 }
 
-/* ===== BUTTONS ===== */
+/* ---- SECTION HEADINGS ---- */
+
+.lc-section {
+    margin-bottom: 10px;
+}
+
+.lc-section h4 {
+    margin: 10px 0 6px;
+    font-size: 13px;
+    color: #e8e0e0;
+    font-weight: 600;
+}
+
+.lc-info-row {
+    font-size: 12px;
+    padding: 2px 0;
+    color: #c4bcbc;
+}
+
+.lc-label {
+    color: #7a7272;
+    font-weight: 500;
+}
+
+/* ---- BUTTONS ---- */
+
 .lc-btn {
-    background: rgba(255, 255, 255, 0.05);
-    color: rgba(255, 255, 255, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 5px 12px;
     border-radius: 6px;
-    padding: 5px 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #c4bcbc;
     font-size: 12px;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
     white-space: nowrap;
-    font-family: inherit;
+    user-select: none;
 }
 
 .lc-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 182, 193, 0.1);
+    border-color: rgba(255, 182, 193, 0.25);
+    color: #ffb6c1;
 }
 
 .lc-btn:active {
@@ -252,38 +287,39 @@
 }
 
 .lc-btn-sm {
-    padding: 3px 7px;
+    padding: 3px 8px;
     font-size: 11px;
 }
 
 .lc-btn-primary {
-    background: rgba(240, 96, 138, 0.25);
-    color: #f0a0c0;
-    border-color: rgba(240, 96, 138, 0.3);
+    background: rgba(255, 182, 193, 0.12);
+    border-color: rgba(255, 182, 193, 0.2);
+    color: #ffb6c1;
 }
 
 .lc-btn-primary:hover {
-    background: rgba(240, 96, 138, 0.35);
+    background: rgba(255, 182, 193, 0.2);
+    border-color: rgba(255, 182, 193, 0.35);
 }
 
 .lc-btn-success {
-    background: rgba(64, 160, 96, 0.2);
-    color: #80c090;
-    border-color: rgba(64, 160, 96, 0.25);
+    color: #8ac4ff;
 }
 
 .lc-btn-success:hover {
-    background: rgba(64, 160, 96, 0.3);
+    background: rgba(138, 196, 255, 0.08);
+    border-color: rgba(138, 196, 255, 0.25);
+    color: #b0d8ff;
 }
 
 .lc-btn-danger {
-    background: rgba(192, 64, 80, 0.2);
-    color: #e08080;
-    border-color: rgba(192, 64, 80, 0.25);
+    color: #c4bcbc;
 }
 
 .lc-btn-danger:hover {
-    background: rgba(192, 64, 80, 0.3);
+    background: rgba(200, 50, 50, 0.1);
+    border-color: rgba(200, 50, 50, 0.25);
+    color: #e08080;
 }
 
 .lc-btn-group {
@@ -293,130 +329,140 @@
     align-items: center;
 }
 
-/* ===== INPUTS ===== */
+/* ---- INPUTS & SELECTS ---- */
+
 .lc-input {
     background: rgba(255, 255, 255, 0.04);
-    color: #ddd;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 5px;
-    padding: 4px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    color: #e8e0e0;
+    padding: 6px 10px;
     font-size: 12px;
-    outline: none;
     transition: border-color 0.2s;
+    outline: none;
     width: 100%;
     box-sizing: border-box;
-    font-family: inherit;
 }
 
 .lc-input:focus {
-    border-color: rgba(240, 96, 138, 0.5);
+    border-color: rgba(255, 182, 193, 0.4);
+}
+
+.lc-input::placeholder {
+    color: #5a5252;
 }
 
 .lc-select {
     background: rgba(255, 255, 255, 0.04);
-    color: #ddd;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 5px;
-    padding: 4px 6px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    color: #e8e0e0;
+    padding: 6px 10px;
     font-size: 12px;
-    outline: none;
     cursor: pointer;
+    outline: none;
     min-width: 60px;
-    font-family: inherit;
 }
 
 .lc-select:focus {
-    border-color: rgba(240, 96, 138, 0.5);
+    border-color: rgba(255, 182, 193, 0.4);
 }
 
 .lc-select option {
-    background: #1a1a2e;
-    color: #ddd;
+    background: #1a1a1e;
+    color: #e8e0e0;
 }
 
-/* ===== CHECKBOX ===== */
+/* ---- CHECKBOX ---- */
+
 .lc-checkbox {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 2px 0;
+    margin-bottom: 4px;
     cursor: pointer;
     font-size: 12px;
+    color: #c4bcbc;
 }
 
 .lc-checkbox input[type="checkbox"] {
-    accent-color: #f0608a;
+    accent-color: #ffb6c1;
     width: 14px;
     height: 14px;
     cursor: pointer;
 }
 
-/* ===== LAYOUT ===== */
+/* ---- LAYOUT HELPERS ---- */
+
 .lc-row {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+    margin-bottom: 6px;
     flex-wrap: wrap;
 }
 
-.lc-row label {
-    font-size: 11px;
-    color: rgba(255, 255, 255, 0.35);
-    min-width: 45px;
-}
-
-.lc-section {
-    margin-bottom: 10px;
-}
-
-.lc-section h4 {
-    margin: 0 0 6px;
-    font-size: 13px;
-    font-weight: 600;
-    color: #f0a0c0;
-}
-
-.lc-info-row {
+.lc-row > label {
+    min-width: 100px;
     font-size: 12px;
-    padding: 2px 0;
-    color: rgba(255, 255, 255, 0.65);
-}
-
-.lc-label {
-    color: rgba(255, 255, 255, 0.4);
-    font-weight: 500;
+    color: #c4bcbc;
+    flex-shrink: 0;
 }
 
 .lc-scroll {
-    max-height: 180px;
+    max-height: 200px;
     overflow-y: auto;
     margin-top: 4px;
 }
 
 .lc-scroll::-webkit-scrollbar {
-    width: 4px;
+    width: 5px;
+}
+
+.lc-scroll::-webkit-scrollbar-track {
+    background: transparent;
 }
 
 .lc-scroll::-webkit-scrollbar-thumb {
-    background: rgba(240, 96, 138, 0.15);
+    background: rgba(255, 182, 193, 0.15);
     border-radius: 3px;
 }
 
-/* ===== CHARACTER CARDS ===== */
+/* ---- HINT TEXT ---- */
+
+.lc-hint {
+    font-size: 10px;
+    color: #7a7272;
+    margin: 2px 0 8px;
+    line-height: 1.4;
+}
+
+/* ---- SEPARATOR ---- */
+
+.lc-hr {
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    margin: 10px 0;
+}
+
+/* ============================================================
+   CHARACTER CARDS
+   ============================================================ */
+
 .lc-char-card {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 8px;
-    padding: 7px 10px;
-    margin-bottom: 5px;
-    transition: border-color 0.2s;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    margin-bottom: 4px;
+    transition: border-color 0.15s;
 }
 
 .lc-char-card:hover {
-    border-color: rgba(240, 96, 138, 0.2);
+    border-color: rgba(255, 182, 193, 0.15);
 }
 
 .lc-char-card-header {
@@ -429,9 +475,9 @@
 }
 
 .lc-char-card-name {
-    font-weight: 600;
     font-size: 12px;
-    color: rgba(255, 255, 255, 0.8);
+    font-weight: 600;
+    color: #e8e0e0;
     white-space: nowrap;
 }
 
@@ -444,36 +490,39 @@
 .lc-tag {
     display: inline-block;
     font-size: 10px;
-    padding: 1px 5px;
+    padding: 1px 6px;
     border-radius: 6px;
-    background: rgba(240, 96, 138, 0.1);
-    color: rgba(240, 160, 192, 0.7);
+    background: rgba(255, 182, 193, 0.08);
+    color: #c4bcbc;
     white-space: nowrap;
 }
 
 .lc-tag-auto {
-    background: rgba(100, 160, 220, 0.1);
-    color: rgba(100, 160, 220, 0.6);
-    border: 1px solid rgba(100, 160, 220, 0.12);
+    background: rgba(138, 196, 255, 0.08);
+    color: #8ac4ff;
 }
 
-/* ===== EDITOR ===== */
+/* ============================================================
+   EDITOR
+   ============================================================ */
+
 .lc-editor {
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(240, 96, 138, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: 8px;
-    padding: 10px;
     margin-top: 8px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.01);
+    padding: 8px 12px 12px;
 }
 
 .lc-editor.hidden {
-    display: none;
+    display: none !important;
 }
 
 .lc-editor-title {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
-    color: #f0a0c0;
+    color: #ffb6c1;
     margin-bottom: 8px;
 }
 
@@ -491,7 +540,7 @@
 
 .lc-editor-field label {
     font-size: 10px;
-    color: rgba(255, 255, 255, 0.3);
+    color: #7a7272;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -503,7 +552,10 @@
     justify-content: flex-end;
 }
 
-/* ===== CYCLE CALENDAR ===== */
+/* ============================================================
+   CYCLE CALENDAR
+   ============================================================ */
+
 .lc-cycle-calendar {
     display: flex;
     flex-wrap: wrap;
@@ -512,8 +564,8 @@
 }
 
 .lc-cal-day {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -522,30 +574,31 @@
     font-weight: 500;
     cursor: default;
     transition: all 0.15s;
+    color: #c4bcbc;
 }
 
 .lc-cal-day.mens {
-    background: rgba(220, 60, 80, 0.2);
+    background: rgba(255, 100, 120, 0.2);
     color: #ff8090;
 }
 
 .lc-cal-day.foll {
-    background: rgba(180, 100, 220, 0.15);
-    color: #d0a0e0;
+    background: rgba(200, 140, 255, 0.12);
+    color: #d0b0e8;
 }
 
 .lc-cal-day.ovul {
-    background: rgba(60, 200, 120, 0.18);
+    background: rgba(100, 220, 140, 0.15);
     color: #80e0a0;
 }
 
 .lc-cal-day.lut {
-    background: rgba(220, 180, 60, 0.15);
-    color: #e0c080;
+    background: rgba(240, 200, 80, 0.12);
+    color: #e0c880;
 }
 
 .lc-cal-day.today {
-    outline: 2px solid #f0608a;
+    outline: 2px solid rgba(255, 182, 193, 0.6);
     outline-offset: -1px;
     font-weight: 700;
     transform: scale(1.15);
@@ -553,12 +606,11 @@
 }
 
 .lc-cycle-info {
-    background: rgba(255, 255, 255, 0.02);
-    border-radius: 6px;
-    padding: 6px 8px;
+    padding: 4px 0;
 }
 
-/* ===== FERTILITY BADGE ===== */
+/* ---- FERTILITY BADGE ---- */
+
 .lc-fert-badge,
 .lc-sw-fert {
     display: inline-block;
@@ -568,75 +620,50 @@
     font-weight: 600;
 }
 
-.lc-fert-badge.low,
-.lc-sw-fert.low {
-    color: #60a060;
-}
+.lc-fert-badge.low, .lc-sw-fert.low { color: #70a870; }
+.lc-fert-badge.med, .lc-sw-fert.med { color: #b0a860; }
+.lc-fert-badge.high, .lc-sw-fert.high { color: #e0a040; }
+.lc-fert-badge.peak, .lc-sw-fert.peak { color: #ff6060; animation: lc-fert-pulse 1.5s infinite; }
 
-.lc-fert-badge.med,
-.lc-sw-fert.med {
-    color: #a0a060;
-}
-
-.lc-fert-badge.high,
-.lc-sw-fert.high {
-    color: #e0a040;
-}
-
-.lc-fert-badge.peak,
-.lc-sw-fert.peak {
-    color: #ff5050;
-    animation: lcFertPulse 1.5s infinite;
-}
-
-@keyframes lcFertPulse {
+@keyframes lc-fert-pulse {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.55; }
+    50% { opacity: 0.5; }
 }
 
-/* ===== PROGRESS BARS ===== */
+/* ============================================================
+   PROGRESS BARS
+   ============================================================ */
+
 .lc-sw-mini-progress {
     width: 100%;
-    height: 5px;
+    height: 4px;
     background: rgba(255, 255, 255, 0.06);
-    border-radius: 4px;
+    border-radius: 3px;
     overflow: hidden;
     margin: 4px 0;
 }
 
 .lc-sw-mini-fill {
     height: 100%;
-    border-radius: 4px;
-    transition: width 0.5s ease;
+    border-radius: 3px;
+    transition: width 0.4s ease;
 }
 
-.lc-sw-mini-fill.preg {
-    background: linear-gradient(90deg, rgba(224, 128, 80, 0.7), rgba(240, 160, 112, 0.7));
-}
+.lc-sw-mini-fill.preg { background: linear-gradient(90deg, #d08050, #f0a878); }
+.lc-sw-mini-fill.labor { background: linear-gradient(90deg, #c04050, #ff6070); animation: lc-labor-pulse 1s infinite; }
+.lc-sw-mini-fill.heat { background: linear-gradient(90deg, #c050a0, #ff70c0); }
+.lc-sw-mini-fill.rut { background: linear-gradient(90deg, #5070c0, #7090ff); }
+.lc-sw-mini-fill.ovi { background: linear-gradient(90deg, #b0a030, #d8c850); }
 
-.lc-sw-mini-fill.labor {
-    background: linear-gradient(90deg, rgba(192, 64, 80, 0.7), rgba(255, 80, 96, 0.7));
-    animation: lcLaborPulse 1s infinite;
-}
-
-.lc-sw-mini-fill.heat {
-    background: linear-gradient(90deg, rgba(192, 64, 160, 0.7), rgba(255, 96, 192, 0.7));
-}
-
-.lc-sw-mini-fill.rut {
-    background: linear-gradient(90deg, rgba(64, 96, 192, 0.7), rgba(96, 128, 255, 0.7));
-}
-
-.lc-sw-mini-fill.ovi {
-    background: linear-gradient(90deg, rgba(176, 160, 32, 0.7), rgba(224, 208, 64, 0.7));
-}
-
-@keyframes lcLaborPulse {
+@keyframes lc-labor-pulse {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.65; }
+    50% { opacity: 0.6; }
 }
 
-/* ===== PREGNANCY / LABOR / BABY UI ===== */
+/* ============================================================
+   PREGNANCY / LABOR / BABY / OVI UI (panel)
+   ============================================================ */
+
 .lc-preg-header {
     display: flex;
     justify-content: space-between;
@@ -645,48 +672,48 @@
 }
 
 .lc-preg-week {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
-    color: #e0a070;
+    color: #f0a878;
 }
 
 .lc-preg-trim {
-    font-size: 12px;
-    color: #a08060;
-    background: rgba(200, 160, 60, 0.1);
+    font-size: 11px;
+    color: #b09060;
+    background: rgba(240, 180, 100, 0.1);
     padding: 2px 8px;
     border-radius: 8px;
 }
 
 .lc-labor-stage {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 700;
-    color: #ff5060;
+    color: #ff6070;
     text-align: center;
     margin-bottom: 4px;
 }
 
 .lc-labor-desc {
-    font-size: 11px;
-    color: rgba(255, 255, 255, 0.35);
+    font-size: 10px;
+    color: #7a7272;
     font-style: italic;
     margin-top: 4px;
 }
 
 .lc-ovi-phase {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
-    color: #d0c040;
+    color: #d8c850;
     text-align: center;
     margin-bottom: 4px;
 }
 
 .lc-baby-card {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 8px;
-    padding: 7px 10px;
-    margin-bottom: 5px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    margin-bottom: 4px;
 }
 
 .lc-baby-header {
@@ -697,13 +724,13 @@
 
 .lc-baby-name {
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.75);
+    color: #e8e0e0;
     font-size: 12px;
 }
 
 .lc-baby-details {
-    font-size: 11px;
-    color: rgba(255, 255, 255, 0.35);
+    font-size: 10px;
+    color: #7a7272;
     margin-top: 3px;
 }
 
@@ -714,78 +741,89 @@
     justify-content: flex-end;
 }
 
-/* ===== DICE LOG ===== */
+/* ============================================================
+   DICE LOG / INTIMACY LOG
+   ============================================================ */
+
 .lc-dice-entry {
     font-size: 11px;
-    padding: 4px 6px;
+    padding: 4px 8px;
     margin-bottom: 3px;
     border-radius: 5px;
     background: rgba(255, 255, 255, 0.02);
     border-left: 3px solid rgba(255, 255, 255, 0.06);
+    color: #c4bcbc;
 }
 
-.lc-dice-entry.lc-dice-success {
-    border-left-color: rgba(64, 160, 96, 0.5);
-}
-
-.lc-dice-entry.lc-dice-fail {
-    border-left-color: rgba(160, 64, 64, 0.5);
-}
+.lc-dice-entry.lc-dice-success { border-left-color: rgba(100, 200, 120, 0.45); }
+.lc-dice-entry.lc-dice-fail { border-left-color: rgba(200, 80, 80, 0.35); }
 
 .lc-dice-ts,
 .lc-intim-ts {
-    color: rgba(255, 255, 255, 0.2);
+    color: #5a5252;
     font-size: 10px;
 }
 
 .lc-intim-entry {
     font-size: 11px;
-    padding: 3px 6px;
+    padding: 3px 8px;
     margin-bottom: 2px;
     border-radius: 4px;
     background: rgba(255, 255, 255, 0.02);
-    color: rgba(255, 255, 255, 0.5);
+    color: #9a9292;
 }
 
-/* ===== RELATIONSHIPS ===== */
+/* ============================================================
+   RELATIONSHIPS
+   ============================================================ */
+
 .lc-rel-entry {
     font-size: 11px;
-    padding: 4px 6px;
+    padding: 4px 8px;
     margin-bottom: 3px;
     border-radius: 5px;
     background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.04);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    color: #c4bcbc;
 }
 
-/* ===== PROFILES ===== */
+/* ============================================================
+   PROFILES
+   ============================================================ */
+
 .lc-profile-card {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 5px 8px;
     border-radius: 6px;
-    padding: 6px 8px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
     margin-bottom: 4px;
     font-size: 11px;
+    color: #c4bcbc;
 }
 
 .lc-profile-card.current {
-    border-color: rgba(240, 96, 138, 0.25);
+    border-color: rgba(255, 182, 193, 0.2);
 }
 
-/* ===== OVERLAY + POPUP ===== */
+/* ============================================================
+   OVERLAY + POPUP
+   ============================================================ */
+
 .lc-overlay {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.55);
+    background: rgba(0, 0, 0, 0.5);
     z-index: 9998;
-    backdrop-filter: blur(4px);
+    backdrop-filter: blur(3px);
 }
 
 .lc-popup {
@@ -793,22 +831,21 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: rgba(20, 20, 35, 0.95);
-    border: 1px solid rgba(240, 96, 138, 0.2);
-    border-radius: 14px;
-    padding: 22px;
+    background: #1a1a1e;
+    border: 1px solid rgba(255, 182, 193, 0.2);
+    border-radius: 10px;
+    padding: 20px;
     min-width: 300px;
-    max-width: 450px;
+    max-width: 440px;
     z-index: 9999;
-    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
-    color: #ddd;
-    backdrop-filter: blur(8px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    color: #e8e0e0;
 }
 
 .lc-popup-title {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 700;
-    color: #f0a0c0;
+    color: #ffb6c1;
     text-align: center;
     margin-bottom: 10px;
 }
@@ -816,7 +853,7 @@
 .lc-popup-auto {
     text-align: center;
     font-size: 10px;
-    color: rgba(255, 255, 255, 0.3);
+    color: #7a7272;
     background: rgba(255, 255, 255, 0.04);
     padding: 2px 8px;
     border-radius: 8px;
@@ -827,93 +864,91 @@
 .lc-popup-details {
     text-align: center;
     font-size: 12px;
-    color: rgba(255, 255, 255, 0.5);
-    margin-bottom: 10px;
+    color: #9a9292;
+    margin-bottom: 8px;
 }
 
 .lc-popup-result {
     text-align: center;
-    font-size: 36px;
+    font-size: 32px;
     font-weight: 800;
-    margin: 10px 0;
+    margin: 8px 0;
     letter-spacing: 2px;
 }
 
-.lc-popup-result.success {
-    color: #40e070;
-    text-shadow: 0 0 20px rgba(64, 224, 112, 0.2);
-}
-
-.lc-popup-result.fail {
-    color: #e04050;
-    text-shadow: 0 0 20px rgba(224, 64, 80, 0.2);
-}
+.lc-popup-result.success { color: #60e080; }
+.lc-popup-result.fail { color: #e06070; }
 
 .lc-popup-verdict {
     text-align: center;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
 }
 
-.lc-popup-verdict.success { color: #40e070; }
-.lc-popup-verdict.fail { color: rgba(255, 255, 255, 0.35); }
+.lc-popup-verdict.success { color: #60e080; }
+.lc-popup-verdict.fail { color: #7a7272; }
 
 .lc-popup-actions {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     justify-content: center;
 }
 
-/* ======================================================
-   STATUS WIDGET (in chat messages) — DETAILED
-   ====================================================== */
+/* ============================================================
+   STATUS WIDGET (in chat messages) — DETAILED + COLLAPSIBLE
+   ============================================================ */
+
 .lc-status-widget {
-    background: transparent;
-    border: 1px solid rgba(240, 96, 138, 0.12);
-    border-radius: 10px;
-    margin-top: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    margin-top: 12px;
     overflow: hidden;
-    font-size: 13px;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    color: #ddd;
+    background: rgba(255, 255, 255, 0.01);
 }
 
 .lc-sw-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     padding: 7px 12px;
-    background: rgba(240, 96, 138, 0.06);
     cursor: pointer;
-    color: #f0a0c0;
-    font-weight: 600;
-    font-size: 12px;
     user-select: none;
-    border-bottom: 1px solid rgba(240, 96, 138, 0.08);
+    transition: background 0.15s;
 }
 
 .lc-sw-header:hover {
-    background: rgba(240, 96, 138, 0.1);
+    background: rgba(255, 182, 193, 0.04);
+}
+
+.lc-sw-header span:first-child {
+    font-size: 12px;
+    font-weight: 600;
+    color: #e8e0e0;
 }
 
 .lc-sw-arrow {
     font-size: 10px;
-    color: rgba(240, 160, 192, 0.4);
+    color: #7a7272;
+    transition: transform 0.25s ease;
+    flex-shrink: 0;
+    width: 14px;
+    text-align: center;
 }
 
 .lc-sw-body {
-    padding: 10px 14px;
+    padding: 4px 12px 12px;
 }
 
 .lc-sw-date {
     font-size: 10px;
-    color: rgba(255, 255, 255, 0.2);
+    color: #5a5252;
     margin-bottom: 8px;
 }
 
 .lc-sw-char {
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     padding-bottom: 8px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
@@ -925,137 +960,107 @@
 }
 
 .lc-sw-char-name {
-    font-weight: 700;
-    font-size: 13px;
-    color: rgba(255, 255, 255, 0.8);
-    margin-bottom: 6px;
+    font-weight: 600;
+    font-size: 12px;
+    color: #e8e0e0;
+    margin-bottom: 4px;
 }
 
 .lc-sw-sec-badge {
     font-size: 9px;
     padding: 0 5px;
     border-radius: 4px;
-    background: rgba(240, 96, 138, 0.1);
-    color: #d0a0e0;
+    background: rgba(255, 182, 193, 0.08);
+    color: #d0b0e8;
     font-weight: 400;
     vertical-align: middle;
 }
 
-/* ===== DETAIL BLOCKS ===== */
+/* ---- DETAIL BLOCKS inside widget ---- */
+
 .lc-sw-detail-block {
-    margin: 6px 0;
-    padding: 8px 10px;
-    border-radius: 8px;
+    margin: 4px 0;
+    padding: 6px 10px;
+    border-radius: 6px;
     border-left: 3px solid rgba(255, 255, 255, 0.06);
     background: rgba(255, 255, 255, 0.02);
 }
 
 .lc-sw-detail-title {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
-    margin-bottom: 4px;
+    margin-bottom: 3px;
 }
 
 .lc-sw-detail-row {
     font-size: 11px;
-    color: rgba(255, 255, 255, 0.6);
+    color: #c4bcbc;
     padding: 1px 0;
     line-height: 1.4;
 }
 
 .lc-sw-detail-label {
-    color: rgba(255, 255, 255, 0.35);
+    color: #7a7272;
     font-weight: 500;
 }
 
 .lc-sw-detail-desc {
     font-size: 10px;
-    color: rgba(255, 255, 255, 0.3);
+    color: #7a7272;
     font-style: italic;
-    margin-top: 4px;
+    margin-top: 3px;
     line-height: 1.35;
     border-top: 1px solid rgba(255, 255, 255, 0.04);
-    padding-top: 4px;
+    padding-top: 3px;
 }
 
 .lc-sw-warn {
     color: #e0a040 !important;
 }
 
-/* Block type colors */
-.lc-sw-labor-block {
-    border-left-color: rgba(192, 64, 80, 0.5);
-}
+/* Block accent colors */
+.lc-sw-labor-block { border-left-color: rgba(255, 96, 112, 0.45); }
+.lc-sw-labor-block .lc-sw-detail-title { color: #ff6070; }
 
-.lc-sw-labor-block .lc-sw-detail-title {
-    color: #ff6070;
-}
+.lc-sw-preg-block { border-left-color: rgba(240, 168, 120, 0.45); }
+.lc-sw-preg-block .lc-sw-detail-title { color: #f0a878; }
 
-.lc-sw-preg-block {
-    border-left-color: rgba(224, 128, 80, 0.5);
-}
+.lc-sw-heat-block { border-left-color: rgba(255, 112, 192, 0.4); }
+.lc-sw-heat-block .lc-sw-detail-title { color: #ff70c0; }
 
-.lc-sw-preg-block .lc-sw-detail-title {
-    color: #f0a070;
-}
+.lc-sw-rut-block { border-left-color: rgba(112, 144, 255, 0.4); }
+.lc-sw-rut-block .lc-sw-detail-title { color: #7090ff; }
 
-.lc-sw-heat-block {
-    border-left-color: rgba(192, 64, 160, 0.5);
-}
+.lc-sw-ovi-block { border-left-color: rgba(216, 200, 80, 0.4); }
+.lc-sw-ovi-block .lc-sw-detail-title { color: #d8c850; }
 
-.lc-sw-heat-block .lc-sw-detail-title {
-    color: #ff60c0;
-}
+.lc-sw-cycle-block { border-left-color: rgba(255, 182, 193, 0.3); }
+.lc-sw-cycle-block .lc-sw-detail-title { color: #ffb6c1; }
 
-.lc-sw-rut-block {
-    border-left-color: rgba(64, 96, 192, 0.5);
-}
-
-.lc-sw-rut-block .lc-sw-detail-title {
-    color: #6080ff;
-}
-
-.lc-sw-ovi-block {
-    border-left-color: rgba(176, 160, 32, 0.5);
-}
-
-.lc-sw-ovi-block .lc-sw-detail-title {
-    color: #e0d040;
-}
-
-.lc-sw-cycle-block {
-    border-left-color: rgba(240, 96, 138, 0.3);
-}
-
-.lc-sw-cycle-block .lc-sw-detail-title {
-    color: #f0a0c0;
-}
-
-.lc-sw-baby-block {
-    border-left-color: rgba(64, 160, 128, 0.4);
-}
-
-.lc-sw-baby-block .lc-sw-detail-title {
-    color: #60c0a0;
-}
+.lc-sw-baby-block { border-left-color: rgba(100, 200, 160, 0.35); }
+.lc-sw-baby-block .lc-sw-detail-title { color: #70c8a0; }
 
 .lc-sw-baby-card {
     background: rgba(255, 255, 255, 0.02);
-    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 5px;
     padding: 4px 6px;
     margin-top: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-/* ===== RESPONSIVE ===== */
-@media (max-width: 400px) {
-    .lifecycle-tabs {
-        gap: 0;
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 600px) {
+    .lc-row {
+        flex-direction: column;
+        align-items: stretch;
     }
 
-    .lifecycle-tab {
-        padding: 4px 5px;
-        font-size: 10px;
+    .lc-row > label {
+        min-width: unset;
+        margin-bottom: 2px;
     }
 
     .lc-editor-grid {
@@ -1068,10 +1073,11 @@
     }
 
     .lc-popup-result {
-        font-size: 28px;
+        font-size: 26px;
     }
 
-    .lc-sw-detail-block {
-        padding: 6px 8px;
+    .lifecycle-tab {
+        padding: 4px 5px;
+        font-size: 10px;
     }
 }
