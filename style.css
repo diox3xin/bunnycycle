@@ -1,0 +1,1301 @@
+/* ============================================================
+   LifeCycle Extension v0.1.0 — Styles
+   Dark theme · Pink accent (#ffb6c1) · SillyTavern-native feel
+   ============================================================ */
+
+/* ---- UTILITY ---- */
+
+.lifecycle-panel .hidden {
+    display: none !important;
+}
+
+.lifecycle-panel {
+    padding: 10px;
+    font-family: inherit;
+    font-size: 12px;
+    color: #c4bcbc;
+}
+
+/* ---- HEADER ---- */
+
+.lifecycle-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.lifecycle-header h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #e8e0e0;
+    letter-spacing: 0.3px;
+}
+
+.lifecycle-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #c4bcbc;
+    user-select: none;
+}
+
+.lifecycle-toggle input[type="checkbox"] {
+    accent-color: #ffb6c1;
+}
+
+/* ---- TABS ---- */
+
+.lifecycle-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-bottom: 10px;
+}
+
+.lifecycle-tab {
+    padding: 5px 9px;
+    font-size: 11px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.02);
+    color: #9a9292;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.lifecycle-tab:hover {
+    background: rgba(255, 182, 193, 0.06);
+    border-color: rgba(255, 182, 193, 0.15);
+    color: #c4bcbc;
+}
+
+.lifecycle-tab.active {
+    background: rgba(255, 182, 193, 0.1);
+    border-color: rgba(255, 182, 193, 0.25);
+    color: #ffb6c1;
+    font-weight: 600;
+}
+
+/* ---- TAB CONTENT ---- */
+
+.lifecycle-tab-content {
+    display: none;
+}
+
+.lifecycle-tab-content.active {
+    display: block;
+}
+
+/* ---- SECTIONS (collapsible blocks) ---- */
+
+.lifecycle-section {
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.01);
+    padding: 10px 12px;
+}
+
+.lifecycle-section h4 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    color: #e8e0e0;
+    font-weight: 600;
+}
+
+.lifecycle-section h5 {
+    margin: 10px 0 4px;
+    font-size: 12px;
+    color: #d0c8c8;
+    font-weight: 600;
+}
+
+.lifecycle-section hr {
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    margin: 10px 0;
+}
+
+.lifecycle-section p.hint {
+    font-size: 10px;
+    color: #7a7272;
+    margin: 2px 0 8px;
+    line-height: 1.4;
+}
+
+/* ---- ROWS ---- */
+
+.lifecycle-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+}
+
+.lifecycle-row > label {
+    min-width: 120px;
+    font-size: 12px;
+    color: #c4bcbc;
+    flex-shrink: 0;
+}
+
+.lifecycle-row .flex1 {
+    flex: 1;
+    min-width: 0;
+}
+
+/* ---- CHECKBOX LABELS ---- */
+
+.lifecycle-panel .checkbox_label,
+.lifecycle-row label:has(input[type="checkbox"]) {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    min-width: unset;
+}
+
+.lifecycle-panel .checkbox_label span,
+.lifecycle-row label:has(input[type="checkbox"]) span {
+    font-size: 12px;
+    color: #c4bcbc;
+}
+
+.lifecycle-panel input[type="checkbox"] {
+    accent-color: #ffb6c1;
+    cursor: pointer;
+}
+
+/* ---- INPUTS & SELECTS ---- */
+
+.lifecycle-panel input[type="text"],
+.lifecycle-panel input[type="number"] {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    color: #e8e0e0;
+    padding: 5px 8px;
+    font-size: 12px;
+    transition: border-color 0.2s;
+    font-family: inherit;
+}
+
+.lifecycle-panel input[type="text"]:focus,
+.lifecycle-panel input[type="number"]:focus {
+    border-color: rgba(255, 182, 193, 0.4);
+    outline: none;
+}
+
+.lifecycle-panel input[type="text"]::placeholder {
+    color: #5a5252;
+}
+
+.lifecycle-panel select {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    color: #e8e0e0;
+    padding: 5px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    font-family: inherit;
+}
+
+.lifecycle-panel select:focus {
+    border-color: rgba(255, 182, 193, 0.4);
+    outline: none;
+}
+
+.lifecycle-panel select option {
+    background: #1a1a1e;
+    color: #e8e0e0;
+}
+
+/* ---- RANGE SLIDER ---- */
+
+.lifecycle-panel input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: 1;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.08);
+    outline: none;
+    cursor: pointer;
+}
+
+.lifecycle-panel input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #ffb6c1;
+    border: 2px solid rgba(255, 182, 193, 0.5);
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.lifecycle-panel input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+}
+
+.lifecycle-panel input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #ffb6c1;
+    border: 2px solid rgba(255, 182, 193, 0.5);
+    cursor: pointer;
+}
+
+/* ---- BUTTONS ---- */
+
+.lifecycle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #c4bcbc;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    white-space: nowrap;
+    user-select: none;
+    font-family: inherit;
+}
+
+.lifecycle-btn:hover {
+    background: rgba(255, 182, 193, 0.1);
+    border-color: rgba(255, 182, 193, 0.25);
+    color: #ffb6c1;
+}
+
+.lifecycle-btn:active {
+    transform: scale(0.97);
+}
+
+.lifecycle-btn.active {
+    background: rgba(255, 182, 193, 0.12);
+    border-color: rgba(255, 182, 193, 0.3);
+    color: #ffb6c1;
+}
+
+.lifecycle-btn.disabled,
+.lifecycle-btn:disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+/* Primary button (blue-ish accent for confirm actions) */
+.lifecycle-btn-primary {
+    background: rgba(138, 196, 255, 0.1);
+    border-color: rgba(138, 196, 255, 0.2);
+    color: #8ac4ff;
+}
+
+.lifecycle-btn-primary:hover {
+    background: rgba(138, 196, 255, 0.18);
+    border-color: rgba(138, 196, 255, 0.35);
+    color: #b0d8ff;
+}
+
+/* Danger button (red accent for destructive actions) */
+.lifecycle-btn-danger {
+    background: rgba(200, 50, 50, 0.08);
+    border-color: rgba(200, 50, 50, 0.15);
+    color: #e87070;
+}
+
+.lifecycle-btn-danger:hover {
+    background: rgba(200, 50, 50, 0.15);
+    border-color: rgba(200, 50, 50, 0.3);
+    color: #ff8a8a;
+}
+
+/* Small buttons */
+.lifecycle-btn-sm {
+    padding: 3px 8px;
+    font-size: 10px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: #9a9292;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    white-space: nowrap;
+    user-select: none;
+    font-family: inherit;
+}
+
+.lifecycle-btn-sm:hover {
+    background: rgba(255, 182, 193, 0.08);
+    border-color: rgba(255, 182, 193, 0.2);
+    color: #ffb6c1;
+}
+
+.lifecycle-btn-sm:active {
+    transform: scale(0.96);
+}
+
+/* Preset buttons row */
+.lifecycle-presets {
+    display: flex;
+    gap: 4px;
+    margin-top: 4px;
+    flex-wrap: wrap;
+}
+
+/* ============================================================
+   CHARACTER CARDS
+   ============================================================ */
+
+.lc-char-card {
+    padding: 10px 12px;
+    margin: 6px 0;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.015);
+    transition: border-color 0.2s;
+}
+
+.lc-char-card:hover {
+    border-color: rgba(255, 182, 193, 0.12);
+}
+
+.lc-char-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.lc-char-card-name {
+    font-weight: 600;
+    font-size: 13px;
+    color: #e8e0e0;
+}
+
+.lc-char-card-tags {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+/* ---- TAGS ---- */
+
+.lc-tag {
+    padding: 2px 6px;
+    font-size: 9px;
+    font-weight: 600;
+    border-radius: 4px;
+    color: white;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+}
+
+.lc-tag-cycle {
+    background: rgba(233, 30, 99, 0.7);
+}
+
+.lc-tag-preg {
+    background: rgba(255, 152, 0, 0.7);
+}
+
+.lc-tag-labor {
+    background: rgba(244, 67, 54, 0.75);
+}
+
+.lc-tag-heat {
+    background: rgba(156, 39, 176, 0.7);
+}
+
+.lc-tag-rut {
+    background: rgba(33, 150, 243, 0.7);
+}
+
+.lc-tag-baby {
+    background: rgba(76, 175, 80, 0.7);
+}
+
+/* ============================================================
+   DASHBOARD (summary panel, always visible)
+   ============================================================ */
+
+.lifecycle-dashboard {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border: 1px solid rgba(255, 182, 193, 0.12);
+    border-radius: 8px;
+    background: rgba(255, 182, 193, 0.02);
+    font-size: 11px;
+    color: #c4bcbc;
+}
+
+.lifecycle-dashboard-title {
+    font-weight: 700;
+    font-size: 12px;
+    color: #e8e0e0;
+    margin-bottom: 6px;
+}
+
+.lifecycle-dashboard-item {
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    line-height: 1.5;
+}
+
+.lifecycle-dashboard-item:last-child {
+    border-bottom: none;
+}
+
+.lifecycle-dashboard-item strong {
+    color: #e8e0e0;
+}
+
+/* ============================================================
+   PROGRESS BARS
+   ============================================================ */
+
+.lc-progress-wrapper {
+    margin-bottom: 8px;
+}
+
+.lc-progress-bar {
+    height: 10px;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+    position: relative;
+}
+
+.lc-progress-fill {
+    height: 100%;
+    border-radius: 5px;
+    transition: width 0.4s ease;
+    position: relative;
+}
+
+/* Pregnancy progress (warm gradient) */
+.lc-progress-fill.preg {
+    background: linear-gradient(90deg, #ff9800, #f44336);
+}
+
+/* Labor dilation progress (red) */
+.lc-progress-fill.labor {
+    background: linear-gradient(90deg, #f44336, #ff5722);
+}
+
+/* Cycle progress (pink) */
+.lc-progress-fill.cycle {
+    background: linear-gradient(90deg, #e91e63, #ffb6c1);
+}
+
+/* Generic progress */
+.lc-progress-fill.generic {
+    background: linear-gradient(90deg, #8ac4ff, #ffb6c1);
+}
+
+.lc-progress-label {
+    font-size: 10px;
+    text-align: center;
+    margin-top: 2px;
+    color: #9a9292;
+}
+
+/* ============================================================
+   CYCLE CALENDAR (mini visual)
+   ============================================================ */
+
+.lc-cycle-calendar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    margin: 8px 0;
+}
+
+.lc-cycle-day {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    transition: transform 0.15s;
+}
+
+.lc-cycle-day.current {
+    width: 12px;
+    height: 12px;
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 4px rgba(255, 182, 193, 0.4);
+}
+
+.lc-cycle-day:hover {
+    transform: scale(1.5);
+}
+
+.lc-cycle-day.phase-mens {
+    background: #e91e63;
+}
+
+.lc-cycle-day.phase-foll {
+    background: #2196f3;
+}
+
+.lc-cycle-day.phase-ovul {
+    background: #4caf50;
+}
+
+.lc-cycle-day.phase-lut {
+    background: #ff9800;
+}
+
+.lc-cycle-legend {
+    font-size: 9px;
+    display: flex;
+    gap: 10px;
+    color: #7a7272;
+    margin-top: 4px;
+}
+
+.lc-cycle-legend span::before {
+    content: "■ ";
+}
+
+.lc-cycle-legend .legend-mens::before { color: #e91e63; }
+.lc-cycle-legend .legend-foll::before { color: #2196f3; }
+.lc-cycle-legend .legend-ovul::before { color: #4caf50; }
+.lc-cycle-legend .legend-lut::before { color: #ff9800; }
+
+/* ============================================================
+   DICE ROLL POPUP
+   ============================================================ */
+
+.lc-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 9999;
+    backdrop-filter: blur(2px);
+}
+
+.lc-dice-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10000;
+    background: #1e1e22;
+    border: 1px solid rgba(255, 182, 193, 0.2);
+    border-radius: 12px;
+    padding: 22px 26px;
+    min-width: 320px;
+    max-width: 400px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6),
+                0 0 20px rgba(255, 182, 193, 0.06);
+    font-family: inherit;
+    animation: lc-popup-in 0.2s ease-out;
+}
+
+@keyframes lc-popup-in {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+.lc-dice-popup h3 {
+    text-align: center;
+    margin: 0 0 14px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #e8e0e0;
+}
+
+.lc-dice-popup .dice-details {
+    font-size: 12px;
+    color: #c4bcbc;
+    margin: 8px 0;
+    line-height: 1.7;
+}
+
+.lc-dice-popup .dice-details strong {
+    color: #e8e0e0;
+}
+
+.lc-dice-popup .dice-details hr {
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    margin: 8px 0;
+}
+
+.lc-dice-popup .dice-result {
+    text-align: center;
+    font-size: 22px;
+    font-weight: 700;
+    margin: 12px 0 4px;
+    font-family: "Courier New", monospace;
+}
+
+.lc-dice-popup .dice-result.dice-success {
+    color: #66bb6a;
+    text-shadow: 0 0 8px rgba(102, 187, 106, 0.3);
+}
+
+.lc-dice-popup .dice-result.dice-fail {
+    color: #ef5350;
+    text-shadow: 0 0 8px rgba(239, 83, 80, 0.3);
+}
+
+.lc-dice-popup .dice-result-text {
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+    margin: 6px 0 0;
+}
+
+.lc-dice-popup .dice-result-text.dice-success {
+    color: #66bb6a;
+}
+
+.lc-dice-popup .dice-result-text.dice-fail {
+    color: #ef5350;
+}
+
+.lc-dice-popup .dice-actions {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+/* ============================================================
+   INFO BLOCK (details view inside panels)
+   ============================================================ */
+
+.lc-info-block {
+    font-size: 11px;
+    color: #c4bcbc;
+    line-height: 1.7;
+}
+
+.lc-info-block div {
+    padding: 1px 0;
+}
+
+.lc-info-block strong {
+    color: #d0c8c8;
+    font-weight: 600;
+}
+
+.lc-info-block .lc-highlight {
+    font-weight: 700;
+}
+
+.lc-info-block .lc-highlight-peak {
+    color: #f44336;
+    font-weight: 700;
+}
+
+.lc-info-block .lc-highlight-high {
+    color: #ff9800;
+    font-weight: 700;
+}
+
+.lc-info-block .lc-highlight-medium {
+    color: #ffc107;
+    font-weight: 700;
+}
+
+.lc-info-block .lc-highlight-low {
+    color: #4caf50;
+    font-weight: 700;
+}
+
+.lc-info-note {
+    margin-top: 6px;
+    padding: 6px 8px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 5px;
+    border-left: 2px solid rgba(255, 182, 193, 0.2);
+    font-size: 10px;
+    color: #9a9292;
+    line-height: 1.5;
+}
+
+/* ============================================================
+   LOG ENTRIES
+   ============================================================ */
+
+.lc-log-entry {
+    font-size: 10px;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    color: #9a9292;
+    line-height: 1.5;
+}
+
+.lc-log-entry:last-child {
+    border-bottom: none;
+}
+
+.lc-log-entry .lc-log-success {
+    color: #66bb6a;
+}
+
+.lc-log-entry .lc-log-fail {
+    color: #ef5350;
+}
+
+.lc-log-empty {
+    font-size: 11px;
+    color: #5a5252;
+    font-style: italic;
+    padding: 8px 0;
+}
+
+/* ============================================================
+   BABY CARDS
+   ============================================================ */
+
+.lc-baby-card {
+    padding: 10px 12px;
+    margin: 6px 0;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.015);
+    transition: border-color 0.2s;
+}
+
+.lc-baby-card:hover {
+    border-color: rgba(76, 175, 80, 0.2);
+}
+
+.lc-baby-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.lc-baby-card-name {
+    font-weight: 600;
+    font-size: 13px;
+    color: #e8e0e0;
+}
+
+.lc-baby-card-age {
+    font-size: 10px;
+    color: #9a9292;
+    background: rgba(76, 175, 80, 0.1);
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+.lc-baby-card-body {
+    font-size: 10px;
+    margin-top: 6px;
+    color: #c4bcbc;
+    line-height: 1.7;
+}
+
+/* ============================================================
+   AU SETTINGS PANEL
+   ============================================================ */
+
+.lc-au-panel {
+    font-size: 11px;
+    color: #c4bcbc;
+}
+
+.lc-au-panel h5 {
+    margin: 10px 0 6px;
+    font-size: 12px;
+    color: #d0c8c8;
+    font-weight: 600;
+    padding-bottom: 3px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* ============================================================
+   CONFIRMATION POPUP (time parser)
+   ============================================================ */
+
+.lc-confirm-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10000;
+    background: #1e1e22;
+    border: 1px solid rgba(138, 196, 255, 0.2);
+    border-radius: 10px;
+    padding: 18px 22px;
+    min-width: 280px;
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.5);
+    font-family: inherit;
+    animation: lc-popup-in 0.2s ease-out;
+}
+
+.lc-confirm-popup h4 {
+    margin: 0 0 10px;
+    font-size: 13px;
+    color: #8ac4ff;
+    font-weight: 600;
+}
+
+.lc-confirm-popup p {
+    font-size: 12px;
+    color: #c4bcbc;
+    margin: 4px 0;
+    line-height: 1.5;
+}
+
+.lc-confirm-popup .lc-confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 14px;
+}
+
+/* ============================================================
+   TOOLTIP
+   ============================================================ */
+
+.lc-tooltip {
+    position: relative;
+    cursor: help;
+}
+
+.lc-tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 8px;
+    background: #2a2a2e;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    font-size: 10px;
+    color: #c4bcbc;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 200;
+}
+
+.lc-tooltip:hover::after {
+    opacity: 1;
+}
+
+/* ============================================================
+   SPINNER / LOADING
+   ============================================================ */
+
+.lc-spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid rgba(255, 182, 193, 0.15);
+    border-top-color: #ffb6c1;
+    border-radius: 50%;
+    animation: lc-spin 0.8s linear infinite;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+@keyframes lc-spin {
+    to { transform: rotate(360deg); }
+}
+
+.lc-loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    gap: 8px;
+}
+
+.lc-loading-text {
+    font-size: 11px;
+    color: #9a9292;
+}
+
+/* ============================================================
+   FERTILITY INDICATOR (colored dot)
+   ============================================================ */
+
+.lc-fertility-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
+.lc-fertility-dot.peak {
+    background: #f44336;
+    box-shadow: 0 0 4px rgba(244, 67, 54, 0.5);
+}
+
+.lc-fertility-dot.high {
+    background: #ff9800;
+    box-shadow: 0 0 4px rgba(255, 152, 0, 0.4);
+}
+
+.lc-fertility-dot.medium {
+    background: #ffc107;
+}
+
+.lc-fertility-dot.low {
+    background: #4caf50;
+}
+
+/* ============================================================
+   HEAT / RUT INDICATORS
+   ============================================================ */
+
+.lc-heat-active {
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: rgba(156, 39, 176, 0.08);
+    border: 1px solid rgba(156, 39, 176, 0.15);
+    margin: 6px 0;
+}
+
+.lc-heat-active .lc-heat-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #ce93d8;
+}
+
+.lc-rut-active {
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: rgba(33, 150, 243, 0.08);
+    border: 1px solid rgba(33, 150, 243, 0.15);
+    margin: 6px 0;
+}
+
+.lc-rut-active .lc-rut-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64b5f6;
+}
+
+/* ============================================================
+   LABOR STAGE INDICATOR
+   ============================================================ */
+
+.lc-labor-stage {
+    display: flex;
+    gap: 2px;
+    margin: 8px 0;
+}
+
+.lc-labor-stage-dot {
+    flex: 1;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.06);
+    transition: background 0.3s;
+}
+
+.lc-labor-stage-dot.completed {
+    background: #f44336;
+}
+
+.lc-labor-stage-dot.current {
+    background: #ff5722;
+    box-shadow: 0 0 6px rgba(255, 87, 34, 0.4);
+    animation: lc-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes lc-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+.lc-labor-stage-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 8px;
+    color: #5a5252;
+    margin-top: 2px;
+}
+
+/* ============================================================
+   SCROLLBAR (settings panel)
+   ============================================================ */
+
+.lifecycle-panel::-webkit-scrollbar {
+    width: 5px;
+}
+
+.lifecycle-panel::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.lifecycle-panel::-webkit-scrollbar-thumb {
+    background: rgba(255, 182, 193, 0.15);
+    border-radius: 3px;
+}
+
+.lifecycle-panel::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 182, 193, 0.25);
+}
+
+/* Scrollbar for inner containers */
+.lc-scrollable {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.lc-scrollable::-webkit-scrollbar {
+    width: 4px;
+}
+
+.lc-scrollable::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.lc-scrollable::-webkit-scrollbar-thumb {
+    background: rgba(255, 182, 193, 0.12);
+    border-radius: 2px;
+}
+
+/* ============================================================
+   COLLAPSIBLE SECTIONS (AU sub-sections, etc.)
+   ============================================================ */
+
+.lc-collapsible {
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 6px;
+    margin-bottom: 6px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.008);
+}
+
+.lc-collapsible-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+}
+
+.lc-collapsible-header:hover {
+    background: rgba(255, 182, 193, 0.04);
+}
+
+.lc-collapsible-header span {
+    font-size: 12px;
+    font-weight: 600;
+    color: #e8e0e0;
+}
+
+.lc-collapse-icon {
+    font-size: 10px;
+    color: #7a7272;
+    transition: transform 0.25s ease;
+    flex-shrink: 0;
+    width: 14px;
+    text-align: center;
+}
+
+.lc-collapsible.collapsed .lc-collapse-icon {
+    transform: rotate(-90deg);
+}
+
+.lc-collapsible-content {
+    padding: 4px 10px 10px;
+    max-height: 1500px;
+    opacity: 1;
+    transition: max-height 0.3s ease, opacity 0.2s ease, padding 0.3s ease;
+}
+
+.lc-collapsible.collapsed .lc-collapsible-content {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+}
+
+/* ============================================================
+   ICON BUTTONS (compact square)
+   ============================================================ */
+
+.lc-icon-btn {
+    width: 28px;
+    height: 28px;
+    padding: 0 !important;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: #9a9292;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.lc-icon-btn:hover {
+    background: rgba(255, 182, 193, 0.1);
+    border-color: rgba(255, 182, 193, 0.2);
+    color: #ffb6c1;
+}
+
+.lc-icon-btn.danger:hover {
+    background: rgba(200, 50, 50, 0.1);
+    border-color: rgba(200, 50, 50, 0.2);
+    color: #e87070;
+}
+
+/* ============================================================
+   NOTIFICATION BADGE (on tab buttons)
+   ============================================================ */
+
+.lifecycle-tab .lc-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
+    border-radius: 7px;
+    background: #f44336;
+    color: white;
+    font-size: 8px;
+    font-weight: 700;
+    margin-left: 3px;
+    vertical-align: middle;
+}
+
+.lifecycle-tab .lc-badge.info {
+    background: #2196f3;
+}
+
+.lifecycle-tab .lc-badge.warn {
+    background: #ff9800;
+}
+
+/* ============================================================
+   SEPARATOR
+   ============================================================ */
+
+.lc-separator {
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    margin: 8px 0;
+}
+
+/* ============================================================
+   EMPTY STATE
+   ============================================================ */
+
+.lc-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    text-align: center;
+}
+
+.lc-empty-state .lc-empty-icon {
+    font-size: 28px;
+    margin-bottom: 8px;
+    opacity: 0.4;
+}
+
+.lc-empty-state .lc-empty-text {
+    font-size: 11px;
+    color: #5a5252;
+    line-height: 1.5;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 600px) {
+    .lifecycle-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .lifecycle-row > label {
+        min-width: unset;
+        margin-bottom: 2px;
+    }
+
+    .lifecycle-tabs {
+        gap: 2px;
+    }
+
+    .lifecycle-tab {
+        padding: 4px 6px;
+        font-size: 10px;
+    }
+
+    .lc-dice-popup {
+        min-width: 280px;
+        padding: 16px 18px;
+    }
+
+    .lc-char-card-tags {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+    }
+
+    .lifecycle-dashboard {
+        font-size: 10px;
+    }
+}
+
+@media (max-width: 400px) {
+    .lifecycle-panel {
+        padding: 6px;
+    }
+
+    .lifecycle-header h3 {
+        font-size: 13px;
+    }
+
+    .lifecycle-section {
+        padding: 8px;
+    }
+
+    .lc-dice-popup {
+        min-width: unset;
+        width: calc(100vw - 40px);
+    }
+}
