@@ -1,5 +1,5 @@
 /* ============================================================
-   BunnyCycle v1.0.0 — Styles
+   BunnyCycle v1.1.0 — Styles
    IIG-inspired: warm grays, pink accents, glass panels
    ============================================================ */
 
@@ -654,6 +654,7 @@
 .lc-sw-mini-fill.heat { background: linear-gradient(90deg, #c050a0, #ff70c0); }
 .lc-sw-mini-fill.rut { background: linear-gradient(90deg, #5070c0, #7090ff); }
 .lc-sw-mini-fill.ovi { background: linear-gradient(90deg, #b0a030, #d8c850); }
+.lc-sw-mini-fill.bond { background: linear-gradient(90deg, #c070a0, #ff90c0); }
 
 @keyframes lc-labor-pulse {
     0%, 100% { opacity: 1; }
@@ -896,7 +897,7 @@
 }
 
 /* ============================================================
-   STATUS WIDGET (in chat messages) — DETAILED + COLLAPSIBLE
+   STATUS WIDGET (in chat messages) — COLLAPSIBLE
    ============================================================ */
 
 .lc-status-widget {
@@ -984,6 +985,9 @@
     border-radius: 6px;
     border-left: 3px solid rgba(255, 255, 255, 0.06);
     background: rgba(255, 255, 255, 0.02);
+    font-size: 11px;
+    color: #c4bcbc;
+    line-height: 1.4;
 }
 
 .lc-sw-detail-title {
@@ -1040,12 +1044,166 @@
 .lc-sw-baby-block { border-left-color: rgba(100, 200, 160, 0.35); }
 .lc-sw-baby-block .lc-sw-detail-title { color: #70c8a0; }
 
+.lc-sw-bond-block { border-left-color: rgba(200, 120, 180, 0.4); }
+.lc-sw-bond-block .lc-sw-detail-title { color: #e090c0; }
+
 .lc-sw-baby-card {
     background: rgba(255, 255, 255, 0.02);
     border: 1px solid rgba(255, 255, 255, 0.04);
     border-radius: 5px;
     padding: 4px 6px;
     margin-top: 4px;
+}
+
+/* ============================================================
+   AU SETTINGS TAB (NEW in v1.1.0)
+   ============================================================ */
+
+/* Section dividers inside AU tab */
+[data-tab="au"] .lc-section {
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+[data-tab="au"] .lc-section:last-child {
+    border-bottom: none;
+}
+
+/* AU section headings with accent */
+[data-tab="au"] .lc-section h4 {
+    color: #e8e0e0;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.02);
+    border-left: 3px solid rgba(255, 182, 193, 0.25);
+    margin: 8px 0 6px;
+}
+
+/* AU input grids need tighter spacing */
+[data-tab="au"] .lc-editor-grid {
+    gap: 5px;
+}
+
+[data-tab="au"] .lc-editor-field {
+    gap: 1px;
+}
+
+[data-tab="au"] .lc-editor-field label {
+    font-size: 9px;
+    letter-spacing: 0.3px;
+}
+
+/* AU number inputs should be compact */
+[data-tab="au"] .lc-input[type="number"] {
+    padding: 4px 8px;
+    font-size: 11px;
+}
+
+[data-tab="au"] .lc-select {
+    padding: 4px 8px;
+    font-size: 11px;
+}
+
+/* AU checkboxes slightly smaller */
+[data-tab="au"] .lc-checkbox {
+    font-size: 11px;
+    margin-bottom: 3px;
+}
+
+[data-tab="au"] .lc-checkbox input[type="checkbox"] {
+    width: 13px;
+    height: 13px;
+}
+
+/* Bond creation row */
+[data-tab="au"] .lc-row span {
+    font-size: 14px;
+    color: #7a7272;
+}
+
+/* AU warning text */
+[data-tab="au"] .lc-info-row[style*="color:orange"],
+[data-tab="au"] .lc-info-row[style*="color: orange"] {
+    background: rgba(224, 160, 64, 0.06);
+    padding: 4px 8px;
+    border-radius: 5px;
+    font-size: 11px;
+    border-left: 3px solid rgba(224, 160, 64, 0.3);
+}
+
+/* AU preset indicator */
+[data-tab="au"] .lc-section:first-child h4 {
+    border-left-color: rgba(100, 200, 255, 0.35);
+}
+
+[data-tab="au"] .lc-section:first-child h4 strong {
+    color: #8ac4ff;
+}
+
+/* ============================================================
+   BOND-SPECIFIC STYLES (NEW in v1.1.0)
+   ============================================================ */
+
+/* Bond tag on character cards */
+.lc-tag[class*="💞"],
+.lc-char-card .lc-tag:nth-last-child(1) {
+    /* handled by existing .lc-tag */
+}
+
+/* Bond status in heat/rut panel */
+[data-tab="hr"] .lc-section h4:last-of-type {
+    color: #e090c0;
+}
+
+/* ============================================================
+   AU-SPECIFIC SECTION ACCENT COLORS
+   ============================================================ */
+
+/* Heat section */
+[data-tab="au"] .lc-section:nth-child(2) h4 {
+    border-left-color: rgba(255, 112, 192, 0.4);
+}
+
+/* Rut section */
+[data-tab="au"] .lc-section:nth-child(3) h4 {
+    border-left-color: rgba(112, 144, 255, 0.4);
+}
+
+/* Knot section */
+[data-tab="au"] .lc-section:nth-child(4) h4 {
+    border-left-color: rgba(180, 140, 100, 0.4);
+}
+
+/* Bonding section */
+[data-tab="au"] .lc-section:nth-child(5) h4 {
+    border-left-color: rgba(200, 120, 180, 0.4);
+}
+
+/* Suppressants section */
+[data-tab="au"] .lc-section:nth-child(6) h4 {
+    border-left-color: rgba(100, 180, 200, 0.4);
+}
+
+/* Physiology section */
+[data-tab="au"] .lc-section:nth-child(7) h4 {
+    border-left-color: rgba(100, 200, 140, 0.4);
+}
+
+/* Pregnancy section */
+[data-tab="au"] .lc-section:nth-child(8) h4 {
+    border-left-color: rgba(240, 168, 120, 0.4);
+}
+
+/* Hierarchy section */
+[data-tab="au"] .lc-section:nth-child(9) h4 {
+    border-left-color: rgba(255, 215, 80, 0.4);
+}
+
+/* Oviposition section (always last if present) */
+[data-tab="au"] .lc-section:last-child h4 {
+    border-left-color: rgba(216, 200, 80, 0.4);
 }
 
 /* ============================================================
@@ -1079,5 +1237,14 @@
     .lifecycle-tab {
         padding: 4px 5px;
         font-size: 10px;
+    }
+
+    [data-tab="au"] .lc-editor-grid {
+        grid-template-columns: 1fr;
+    }
+
+    [data-tab="au"] .lc-row {
+        flex-direction: column;
+        align-items: stretch;
     }
 }
