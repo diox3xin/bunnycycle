@@ -640,6 +640,101 @@ export function renderProfileList() {
 }
 
 // ========================
+// РЕНДЕР ОТНОШЕНИЙ
+// ========================
+export function renderRelList() {
+    const s = getSettings();
+    const el = document.getElementById('bc-rel-list');
+    if (!el) return;
+
+    const rels = s.relationships || [];
+    if (!rels.length) {
+        el.innerHTML = '<div class="bc-empty">Нет отношений</div>';
+        return;
+    }
+
+    el.innerHTML = rels.map(r => `
+        <div class="bc-rel-row">
+            <span class="bc-rel-pair">${escapeHtml(r.char1)} ↔ ${escapeHtml(r.char2)}</span>
+            <span class="bc-rel-type">${escapeHtml(r.type)}</span>
+            ${r.notes ? `<span class="bc-rel-note">${escapeHtml(r.notes)}</span>` : ''}
+            <span class="bc-rel-str">💪 ${r.strength || 50}%</span>
+            <button class="bc-icon-btn bc-rel-del" data-id="${r.id}" title="Удалить"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+    `).join('');
+}
+
+// ========================
+// РЕНДЕР ДЕТЕЙ
+// ========================
+export function renderBabyList() {
+    const s = getSettings();
+    const sel = document.getElementById('bc-baby-parent');
+    const el = document.getElementById('bc-baby-list');
+    if (!el) return;
+
+    // Собираем всех детей от всех персонажей
+    let allBabies = [];
+    const parentFilter = sel?.value;
+
+    for (const [name, p] of Object.entries(s.characters || {})) {
+        if (p.babies?.length) {
+            for (const baby of p.babies) {
+                if (!parentFilter || name === parentFilter || baby.father === parentFilter) {
+                    allBabies.push({ ...baby, _motherName: name });
+                }
+            }
+        }
+    }
+
+    if (!allBabies.length) {
+        el.innerHTML = '<div class="bc-empty">Нет детей</div>';
+        return;
+    }
+
+    el.innerHTML = allBabies.map(b => {
+        const bm = new BabyManager(b);
+        return `
+            <div class="bc-baby-row">
+                <span class="bc-baby-icon">${bm.ageEmoji}</span>
+                <span class="bc-baby-name">${escapeHtml(b.name || '?')} ${b.sex === 'M' ? '♂' : '♀'}</span>
+                <span class="bc-baby-age">${bm.ageLabel}</span>
+                <span class="bc-baby-parents">${escapeHtml(b._motherName)} × ${escapeHtml(b.father)}</span>
+                <span class="bc-baby-weight">${b.currentWeight || b.birthWeight}г</span>
+                ${bm.nextMilestone ? `<span class="bc-baby-next">→ ${bm.nextMilestone.label}</span>` : ''}
+                <button class="bc-icon-btn bc-baby-del" data-mother="${escapeHtml(b._motherName)}" data-id="${b.id}" title="Удалить"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        `;
+    }).join('');
+}
+
+// ========================
+// РЕНДЕР СЕМЕЙНОГО ДРЕВА
+// ========================
+export function renderFamilyTree() {
+    const el = document.getElementById('bc-family-tree');
+    if (!el) return;
+
+    const tree = RelationshipManager.buildFamilyTree();
+    const names = Object.keys(tree);
+    if (!names.length) {
+        el.innerHTML = '<div class="bc-empty">Нет данных</div>';
+        return;
+    }
+
+    let html = '';
+    for (const name of names) {
+        const node = tree[name];
+        let parts = [`<strong>${escapeHtml(name)}</strong> ${node.sex === 'M' ? '♂' : '♀'}`];
+        if (node.partners.length) parts.push(`❤️ ${node.partners.map(escapeHtml).join(', ')}`);
+        if (node.children.length) parts.push(`👶 ${node.children.map(escapeHtml).join(', ')}`);
+        if (node.parents.length) parts.push(`👤 родители: ${node.parents.map(escapeHtml).join(', ')}`);
+        html += `<div class="bc-tree-node">${parts.join(' | ')}</div>`;
+    }
+    el.innerHTML = html;
+}
+
+// ========================
 // ПОЛНЫЙ REBUILD
 // ========================
 export function rebuild() {
@@ -651,4 +746,7 @@ export function rebuild() {
     renderHealth();
     renderAuSettings();
     renderProfileList();
+    renderRelList();
+    renderBabyList();
+    renderFamilyTree();
 }

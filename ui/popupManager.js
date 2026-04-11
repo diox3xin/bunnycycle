@@ -294,6 +294,49 @@ export function showStartPregPopup(charName, onDone) {
 }
 
 // ========================
+// СОЗДАТЬ РЕБЁНКА
+// ========================
+export function showCreateBabyPopup(parentName, onDone) {
+    const s = getSettings();
+    const names = Object.keys(s.characters).filter(n => n !== parentName);
+    const fatherOptions = names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('') +
+        '<option value="?">Неизвестный</option>';
+
+    const html = `
+        <label class="bc-label">Имя ребёнка</label>
+        <input class="bc-input" id="bc-pop-baby-name" placeholder="Имя">
+        <label class="bc-label">Пол</label>
+        <select class="bc-select" id="bc-pop-baby-sex">
+            <option value="F">Девочка ♀</option>
+            <option value="M">Мальчик ♂</option>
+        </select>
+        <label class="bc-label">Второй родитель</label>
+        <select class="bc-select" id="bc-pop-baby-father">${fatherOptions}</select>
+        <label class="bc-label">Возраст (дней)</label>
+        <input class="bc-input" id="bc-pop-baby-age" type="number" value="0" min="0" max="3650">
+        <label class="bc-label">Вес при рождении (г)</label>
+        <input class="bc-input" id="bc-pop-baby-weight" type="number" value="3200" min="500" max="6000">
+        <label class="bc-label">Заметка</label>
+        <input class="bc-input" id="bc-pop-baby-note" placeholder="">
+        <div class="bc-btn-group" style="margin-top:12px">
+            <button class="bc-btn primary" id="bc-pop-baby-ok">Создать</button>
+        </div>
+    `;
+    const popup = showPopup(html, { title: `👶 Новый ребёнок — ${escapeHtml(parentName)}` });
+
+    popup.querySelector('#bc-pop-baby-ok')?.addEventListener('click', () => {
+        const name = popup.querySelector('#bc-pop-baby-name')?.value?.trim();
+        const sex = popup.querySelector('#bc-pop-baby-sex')?.value;
+        const father = popup.querySelector('#bc-pop-baby-father')?.value;
+        const ageDays = parseInt(popup.querySelector('#bc-pop-baby-age')?.value) || 0;
+        const weight = parseInt(popup.querySelector('#bc-pop-baby-weight')?.value) || 3200;
+        const note = popup.querySelector('#bc-pop-baby-note')?.value?.trim();
+        closePopup();
+        if (onDone) onDone({ name, sex, father, ageDays, weight, note });
+    });
+}
+
+// ========================
 // ПОДТВЕРЖДЕНИЕ
 // ========================
 export function showConfirm(text, onOk) {

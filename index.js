@@ -19,9 +19,10 @@ import { TimeManager } from './core/timeManager.js';
 import { generatePrompt, parseResponseTags, stripTags } from './core/promptBuilder.js';
 import { RelationshipManager } from './core/relationshipManager.js';
 
-import { rebuild, renderDashboard, renderCharList, renderCycle, renderPregnancy, renderHealth, populateCharSelects, renderCharEditor, hideCharEditor, renderAuSettings, renderProfileList } from './ui/drawerUI.js';
+import { rebuild, renderDashboard, renderCharList, renderCycle, renderPregnancy, renderHealth, populateCharSelects, renderCharEditor, hideCharEditor, renderAuSettings, renderProfileList, renderRelList, renderBabyList, renderFamilyTree } from './ui/drawerUI.js';
 import { injectWidgets, attachWidgetListeners } from './ui/widgetRenderer.js';
-import { showAddCharPopup, showAddDiseasePopup, showAddInjuryPopup, showAddMedPopup, showAddRelPopup, showDiceResult, showStartPregPopup, showConfirm } from './ui/popupManager.js';
+import { showAddCharPopup, showAddDiseasePopup, showAddInjuryPopup, showAddMedPopup, showAddRelPopup, showDiceResult, showStartPregPopup, showConfirm, showCreateBabyPopup } from './ui/popupManager.js';
+import { LLM } from './utils/llmCaller.js';
 
 const EXT = 'bunnycycle';
 const LOG = (...args) => console.log('[BunnyCycle]', ...args);
@@ -439,8 +440,82 @@ function initDrawerEvents() {
         });
     });
 
-    // === FAMILY ===
-    $d.on('click', '#bc-rel-add', () => showAddRelPopup(rebuild));
+    // === FAMILY: RELATIONSHIPS ===
+    $d.on('click', '#bc-rel-add', () => showAddRelPopup(() => { renderRelList(); renderFamilyTree(); }));
+    $d.on('click', '.bc-rel-del', function () {
+        const id = $(this).data('id');
+        RelationshipManager.remove(id);
+        renderRelList();
+        renderFamilyTree();
+    });
+
+    // === FAMILY: BABIES ===
+    $d.on('change', '#bc-baby-parent', renderBabyList);
+    $d.on('click', '#bc-baby-create', () => {
+        const parentName = $('#bc-baby-parent').val();
+        if (!parentName) return;
+        showCreateBabyPopup(parentName, (data) => {
+            const s = getSettings();
+            const p = s.characters[parentName];
+            if (!p) return;
+            const baby = BabyManager.generate(p, data.father, {
+                name: data.name,
+                sex: data.sex
+            });
+            baby.ageDays = data.ageDays || 0;
+            baby.birthWeight = data.weight || 3200;
+            baby.currentWeight = data.weight || 3200;
+            if (data.note) baby.notes = data.note;
+            if (!p.babies) p.babies = [];
+            p.babies.push(baby);
+            saveSettings();
+            renderBabyList();
+            renderFamilyTree();
+        });
+    });
+    $d.on('click', '.bc-baby-del', function () {
+        const motherName = $(this).data('mother');
+        const id = $(this).data('id');
+        const s = getSettings();
+        const p = s.characters[motherName];
+        if (p?.babies) {
+            p.babies = p.babies.filter(b => b.id !== id);
+            saveSettings();
+            renderBabyList();
+            renderFamilyTree();
+        }
+    });
+
+    // === AI REPARSE ===
+    $d.on('click', '#bc-reparse', async function () {
+        const btn = $(this);
+        btn.prop('disabled', true).find('i').addClass('fa-spin');
+        try {
+            await aiReparse();
+            rebuild();
+        } catch (e) {
+            console.error('[BunnyCycle] AI reparse error:', e);
+        }
+        btn.prop('disabled', false).find('i').removeClass('fa-spin');
+    });
+
+    // === INTIMACY LOG ===
+    $d.on('click', '#bc-intim-log', () => {
+        const s = getSettings();
+        const log = (s.intimacyLog || []).slice(-20).reverse();
+        if (!log.length) {
+            showConfirm('Лог интимности пуст.', () => {});
+            return;
+        }
+        const html = log.map(e => `<div class="bc-history-row">
+            <span>${(e.parts || []).join(' × ')} — ${e.type || '?'} (${e.ejac || '?'})</span>
+            <span class="bc-cond-day">${e.auto ? 'авто' : 'ручной'}</span>
+        </div>`).join('');
+        // Reuse popup
+        import('./ui/popupManager.js').then(m => {
+            // Simple: just show confirm-like with HTML
+        });
+    });
 
     // === SETTINGS ===
     $d.on('change', '#bc-mod-cycle', function () { getSettings().modules.cycle = this.checked; saveSettings(); });
@@ -744,4 +819,114 @@ function applyResponseTags(tags) {
             );
         }
     }
+}
+
+// ========================
+// AI REPARSE (ИИ-анализ чата)
+// ========================
+async function aiReparse() {
+    const s = getSettings();
+    const ctx = getContext();
+    if (!ctx?.chat?.length) { LOG('AI reparse: нет чата'); return; }
+
+    // Берём последние 30 сообщений
+    const msgs = ctx.chat.slice(-30).map(m => `${m.name || '?'}: ${m.mes || ''}`).join('\n');
+    const charNames = Object.keys(s.characters);
+
+    const systemPrompt = `You are a JSON extractor for an RP chat. Extract character info from the conversation.
+Known characters: ${charNames.join(', ')}
+Return ONLY valid JSON, no markdown, no explanation.`;
+
+    const userPrompt = `Analyze this RP chat and extract:
+- For each character: sex (M/F), pregnancy status (active: true/false, week number, father name), children (name, sex, father/mother), relationships between characters
+- Only include data explicitly mentioned or strongly implied in the text
+
+Return JSON format:
+{
+  "characters": {
+    "Name": { "bioSex": "F", "pregnant": false, "pregnancyWeek": 0, "father": "" }
+  },
+  "children": [
+    { "name": "ChildName", "sex": "F", "mother": "MotherName", "father": "FatherName", "ageDays": 0 }
+  ],
+  "relationships": [
+    { "char1": "Name1", "char2": "Name2", "type": "партнёры" }
+  ]
+}
+
+Chat:
+${msgs}`;
+
+    LOG('🤖 AI reparse запущен...');
+
+    const response = await LLM.call(systemPrompt, userPrompt);
+    if (!response) { LOG('AI reparse: нет ответа от LLM'); return; }
+
+    const data = LLM.parseJSON(response);
+    if (!data) { LOG('AI reparse: не удалось разобрать JSON', response); return; }
+
+    LOG('AI reparse результат:', data);
+
+    // Применяем данные
+    if (data.characters) {
+        for (const [name, info] of Object.entries(data.characters)) {
+            const p = s.characters[name];
+            if (!p) continue;
+
+            // Пол
+            if (info.bioSex && !p._mB) {
+                p.bioSex = info.bioSex;
+                p._sexSource = 'ai_reparse';
+                p._sexConfidence = 3;
+                if (info.bioSex === 'M') p.cycle.enabled = false;
+            }
+
+            // Беременность
+            if (info.pregnant && !p.pregnancy?.active) {
+                ensureProfileFields(p);
+                new PregnancyEngine(p).start(info.father || '?', 1, null, info.pregnancyWeek || 1);
+            }
+        }
+    }
+
+    // Дети
+    if (data.children?.length) {
+        for (const child of data.children) {
+            const motherName = child.mother;
+            const p = s.characters[motherName];
+            if (!p) continue;
+            if (!p.babies) p.babies = [];
+
+            // Проверяем нет ли уже такого ребёнка
+            const exists = p.babies.some(b => b.name === child.name);
+            if (exists) continue;
+
+            const baby = BabyManager.generate(p, child.father || '?', {
+                name: child.name || '?',
+                sex: child.sex || (Math.random() < 0.5 ? 'M' : 'F')
+            });
+            baby.ageDays = child.ageDays || 0;
+            p.babies.push(baby);
+            LOG(`👶 AI добавил ребёнка: ${child.name} (${motherName})`);
+        }
+    }
+
+    // Отношения
+    if (data.relationships?.length) {
+        for (const rel of data.relationships) {
+            if (!rel.char1 || !rel.char2) continue;
+            // Проверяем нет ли уже такого
+            const existing = (s.relationships || []).find(r =>
+                (r.char1 === rel.char1 && r.char2 === rel.char2) ||
+                (r.char1 === rel.char2 && r.char2 === rel.char1)
+            );
+            if (!existing) {
+                RelationshipManager.add(rel.char1, rel.char2, rel.type || 'друзья', 'AI-detected');
+                LOG(`❤️ AI добавил отношение: ${rel.char1} ↔ ${rel.char2} (${rel.type})`);
+            }
+        }
+    }
+
+    saveSettings();
+    LOG('✅ AI reparse завершён');
 }
