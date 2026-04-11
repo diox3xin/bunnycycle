@@ -95,7 +95,14 @@ export function generatePrompt() {
         // Ovi
         if (s.modules.auOverlay && s.auSettings.oviposition.enabled && p.oviposition?.active) {
             const oe = new OviEngine(p);
-            charParts.push(`🥚 Овипозиция: ${oe.phaseLabel}, яиц: ${p.oviposition.eggCount} (опл.: ${p.oviposition.fertilizedCount})`);
+            const oviS = s.auSettings.oviposition;
+            const phaseDescs = {
+                gestation: `яйца формируются внутри, живот увеличивается, день ${p.oviposition.daysActive}/${oviS.gestationDays}`,
+                laying: `идёт процесс кладки яиц, ${oviS.painLevel === 'severe' ? 'сильная боль' : oviS.painLevel === 'moderate' ? 'умеренная боль' : 'незначительный дискомфорт'}, скорлупа: ${oviS.shellType === 'hard' ? 'твёрдая' : oviS.shellType === 'soft' ? 'мягкая' : 'кожистая'}, размер: ${oviS.eggSize}`,
+                incubation: `яйца отложены и инкубируются, ${p.oviposition.fertilizedCount} из ${p.oviposition.eggCount} оплодотворены`,
+                hatching: `яйца готовы к вылуплению! ${p.oviposition.fertilizedCount} детёнышей скоро появятся`
+            };
+            charParts.push(`🥚 Овипозиция: ${oe.phaseLabel} (${oe.progress}%), яиц: ${p.oviposition.eggCount} (опл.: ${p.oviposition.fertilizedCount}). ${phaseDescs[p.oviposition.phase] || ''}`);
         }
 
         // Дети

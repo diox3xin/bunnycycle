@@ -19,7 +19,7 @@ import { TimeManager } from './core/timeManager.js';
 import { generatePrompt, parseResponseTags, stripTags } from './core/promptBuilder.js';
 import { RelationshipManager } from './core/relationshipManager.js';
 
-import { rebuild, renderDashboard, renderCharList, renderCycle, renderPregnancy, renderHealth, populateCharSelects, renderCharEditor, hideCharEditor, renderAuSettings, renderProfileList, renderRelList, renderBabyList, renderFamilyTree } from './ui/drawerUI.js';
+import { rebuild, renderDashboard, renderCharList, renderCycle, renderPregnancy, renderHealth, populateCharSelects, renderCharEditor, hideCharEditor, renderAuSettings, renderProfileList, renderRelList, renderBabyList, renderFamilyTree, renderOviposition } from './ui/drawerUI.js';
 import { injectWidgets, attachWidgetListeners } from './ui/widgetRenderer.js';
 import { showAddCharPopup, showAddDiseasePopup, showAddInjuryPopup, showAddMedPopup, showAddRelPopup, showDiceResult, showStartPregPopup, showConfirm, showCreateBabyPopup, showNotice } from './ui/popupManager.js';
 import { LLM } from './utils/llmCaller.js';
@@ -429,6 +429,71 @@ function initDrawerEvents() {
         getSettings().auPreset = this.value;
         saveSettings();
         renderAuSettings();
+        renderOviposition();
+    });
+
+    // === OVIPOSITION ===
+    $d.on('change', '#bc-ovi-char', renderOviposition);
+    $d.on('click', '#bc-ovi-start', () => {
+        const s = getSettings();
+        const p = s.characters[$('#bc-ovi-char').val()];
+        if (p) {
+            new OviEngine(p).startCarrying();
+            saveSettings();
+            renderOviposition();
+            showNotice(`🥚 Вынашивание начато! ${p.oviposition.eggCount} яиц (${p.oviposition.fertilizedCount} оплодотворены)`, 3000);
+        }
+    });
+    $d.on('click', '#bc-ovi-advance', () => {
+        const s = getSettings();
+        const p = s.characters[$('#bc-ovi-char').val()];
+        if (p?.oviposition?.active) {
+            new OviEngine(p).advance(1);
+            saveSettings();
+            renderOviposition();
+        }
+    });
+    $d.on('click', '#bc-ovi-advance-5', () => {
+        const s = getSettings();
+        const p = s.characters[$('#bc-ovi-char').val()];
+        if (p?.oviposition?.active) {
+            new OviEngine(p).advance(5);
+            saveSettings();
+            renderOviposition();
+        }
+    });
+    $d.on('click', '#bc-ovi-hatch', () => {
+        const s = getSettings();
+        const charName = $('#bc-ovi-char').val();
+        const p = s.characters[charName];
+        if (p?.oviposition?.active && p.oviposition.phase === 'hatching') {
+            const count = p.oviposition.fertilizedCount || 1;
+            if (!p.babies) p.babies = [];
+            for (let i = 0; i < count; i++) {
+                const baby = BabyManager.generate(p, '?', {
+                    name: `Детёныш ${p.babies.length + 1}`,
+                    sex: Math.random() < 0.5 ? 'M' : 'F'
+                });
+                baby.ageDays = 0;
+                baby.birthWeight = 50 + Math.floor(Math.random() * 100); // яичные детёныши легче
+                baby.currentWeight = baby.birthWeight;
+                baby.notes = '🥚 Из яйца';
+                p.babies.push(baby);
+            }
+            new OviEngine(p).end();
+            saveSettings();
+            renderOviposition();
+            renderBabyList();
+            renderFamilyTree();
+            showNotice(`🐣 Вылупилось ${count} детёнышей!`, 3000);
+        }
+    });
+    $d.on('click', '#bc-ovi-end', () => {
+        showConfirm('Завершить/сбросить кладку?', () => {
+            const s = getSettings();
+            const p = s.characters[$('#bc-ovi-char').val()];
+            if (p) { new OviEngine(p).end(); saveSettings(); renderOviposition(); }
+        });
     });
 
     // === PROFILE LIST ACTIONS ===

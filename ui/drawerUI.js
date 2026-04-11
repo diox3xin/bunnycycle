@@ -709,6 +709,105 @@ export function renderBabyList() {
 }
 
 // ========================
+// РЕНДЕР ОВИПОЗИЦИИ
+// ========================
+export function renderOviposition() {
+    const s = getSettings();
+    const section = document.getElementById('bc-ovi-section');
+    const panel = document.getElementById('bc-ovi-panel');
+    const sel = document.getElementById('bc-ovi-char');
+    if (!section || !panel) return;
+
+    // Показываем секцию только если ови включена
+    const oviEnabled = s.auSettings?.oviposition?.enabled;
+    section.style.display = oviEnabled ? '' : 'none';
+    if (!oviEnabled) return;
+
+    const p = s.characters[sel?.value];
+    if (!p) { panel.innerHTML = '<div class="bc-empty">Выберите персонажа</div>'; return; }
+
+    const oe = new OviEngine(p);
+    const oviS = s.auSettings.oviposition;
+
+    if (!oe.isActive) {
+        panel.innerHTML = `
+            <div class="bc-empty">Нет активной кладки</div>
+            <div class="bc-btn-group" style="margin-top:8px">
+                <button class="bc-btn primary" id="bc-ovi-start"><i class="fa-solid fa-egg"></i> Начать вынашивание</button>
+            </div>
+            <div class="bc-info-text" style="margin-top:8px; font-size:11px; opacity:0.7">
+                🥚 Яиц: ${oviS.eggCountMin}–${oviS.eggCountMax} | 
+                Гестация: ${oviS.gestationDays} дн. | 
+                Кладка: ${oviS.layingDuration} дн. | 
+                Инкубация: ${oviS.incubationDays} дн. |
+                Скорлупа: ${oviS.shellType} | 
+                Размер: ${oviS.eggSize}
+            </div>
+        `;
+        return;
+    }
+
+    const o = p.oviposition;
+    const phaseEmoji = { gestation: '🤰', laying: '🥚', incubation: '🪺', hatching: '🐣' }[o.phase] || '🥚';
+    const phaseColor = { gestation: '#c090e0', laying: '#e0a050', incubation: '#60b0c0', hatching: '#80d060' }[o.phase] || '#888';
+    const painLabel = { none: '—', mild: 'Слабая', moderate: 'Умеренная', severe: 'Сильная' }[oviS.painLevel] || '—';
+
+    // Рассчёт дней до следующей фазы
+    let phaseDaysLeft = 0;
+    if (o.phase === 'gestation') phaseDaysLeft = Math.max(0, (oviS.gestationDays || 14) - o.daysActive);
+    else if (o.phase === 'laying') phaseDaysLeft = Math.max(0, (oviS.gestationDays || 14) + (oviS.layingDuration || 3) - o.daysActive);
+    else if (o.phase === 'incubation') phaseDaysLeft = Math.max(0, (oviS.gestationDays || 14) + (oviS.layingDuration || 3) + (oviS.incubationDays || 21) - o.daysActive);
+
+    panel.innerHTML = `
+        <div class="bc-preg-header">
+            <span class="bc-preg-emoji">${phaseEmoji}</span>
+            <span class="bc-preg-title">${oe.phaseLabel}</span>
+            <span class="bc-preg-weeks">День ${o.daysActive}</span>
+        </div>
+        <div class="bc-progress-bar">
+            <div class="bc-progress-fill" style="width:${oe.progress}%;background:${phaseColor}"></div>
+            <span class="bc-progress-text">${oe.progress}%</span>
+        </div>
+        <div class="bc-stat-row"><span class="bc-stat-label">Фаза</span><span class="bc-stat-value" style="color:${phaseColor}">${phaseEmoji} ${oe.phaseLabel}</span></div>
+        <div class="bc-stat-row"><span class="bc-stat-label">Яиц</span><span class="bc-stat-value">${o.eggCount} (оплод.: ${o.fertilizedCount})</span></div>
+        <div class="bc-stat-row"><span class="bc-stat-label">До след. фазы</span><span class="bc-stat-value">${phaseDaysLeft} дн.</span></div>
+        <div class="bc-stat-row"><span class="bc-stat-label">Отложены</span><span class="bc-stat-value">${o.laid ? '✅ Да' : '❌ Ещё нет'}</span></div>
+        <div class="bc-stat-row"><span class="bc-stat-label">Скорлупа</span><span class="bc-stat-value">${oviS.shellType === 'hard' ? 'Твёрдая' : oviS.shellType === 'soft' ? 'Мягкая' : 'Кожистая'}</span></div>
+        <div class="bc-stat-row"><span class="bc-stat-label">Размер</span><span class="bc-stat-value">${oviS.eggSize === 'small' ? 'Маленькие' : oviS.eggSize === 'large' ? 'Большие' : 'Средние'}</span></div>
+        <div class="bc-stat-row"><span class="bc-stat-label">Боль</span><span class="bc-stat-value">${painLabel}</span></div>
+        ${o.phase === 'gestation' ? `
+            <div class="bc-info-text" style="margin-top:6px">
+                🤰 Яйца формируются внутри. Живот постепенно увеличивается. 
+                ${oviS.painLevel !== 'none' ? 'Возможен дискомфорт и ощущение тяжести.' : ''}
+            </div>
+        ` : ''}
+        ${o.phase === 'laying' ? `
+            <div class="bc-info-text" style="margin-top:6px">
+                🥚 Процесс кладки! Персонаж откладывает яйца одно за другим. 
+                ${oviS.painLevel === 'severe' ? '⚠ Сильная боль!' : oviS.painLevel === 'moderate' ? 'Умеренная боль.' : 'Незначительный дискомфорт.'}
+                ${oviS.eggSize === 'large' ? ' Крупные яйца делают процесс сложнее.' : ''}
+            </div>
+        ` : ''}
+        ${o.phase === 'incubation' ? `
+            <div class="bc-info-text" style="margin-top:6px">
+                🪺 Яйца отложены и нуждаются в тепле. ${o.fertilizedCount} из ${o.eggCount} оплодотворены.
+            </div>
+        ` : ''}
+        ${o.phase === 'hatching' ? `
+            <div class="bc-info-text" style="margin-top:6px">
+                🐣 Из яиц вылупляются детёныши! ${o.fertilizedCount} малышей появляются на свет.
+            </div>
+        ` : ''}
+        <div class="bc-btn-group" style="margin-top:8px">
+            <button class="bc-btn-sm" id="bc-ovi-advance">+1 день</button>
+            <button class="bc-btn-sm" id="bc-ovi-advance-5">+5 дней</button>
+            ${o.phase === 'hatching' ? '<button class="bc-btn primary" id="bc-ovi-hatch"><i class="fa-solid fa-baby"></i> Создать детёнышей</button>' : ''}
+            <button class="bc-btn-sm bc-danger" id="bc-ovi-end">Завершить</button>
+        </div>
+    `;
+}
+
+// ========================
 // РЕНДЕР СЕМЕЙНОГО ДРЕВА
 // ========================
 export function renderFamilyTree() {
@@ -749,4 +848,5 @@ export function rebuild() {
     renderRelList();
     renderBabyList();
     renderFamilyTree();
+    renderOviposition();
 }
