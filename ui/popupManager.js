@@ -312,8 +312,15 @@ export function showCreateBabyPopup(parentName, onDone) {
         </select>
         <label class="bc-label">Второй родитель</label>
         <select class="bc-select" id="bc-pop-baby-father">${fatherOptions}</select>
-        <label class="bc-label">Возраст (дней)</label>
-        <input class="bc-input" id="bc-pop-baby-age" type="number" value="0" min="0" max="3650">
+        <label class="bc-label">Возраст</label>
+        <div class="bc-row">
+            <input class="bc-input" id="bc-pop-baby-age" type="number" value="0" min="0" max="9999" style="flex:1">
+            <select class="bc-select" id="bc-pop-baby-age-unit" style="flex:1">
+                <option value="days">дней</option>
+                <option value="months">месяцев</option>
+                <option value="years">лет</option>
+            </select>
+        </div>
         <label class="bc-label">Вес при рождении (г)</label>
         <input class="bc-input" id="bc-pop-baby-weight" type="number" value="3200" min="500" max="6000">
         <label class="bc-label">Заметка</label>
@@ -328,12 +335,32 @@ export function showCreateBabyPopup(parentName, onDone) {
         const name = popup.querySelector('#bc-pop-baby-name')?.value?.trim();
         const sex = popup.querySelector('#bc-pop-baby-sex')?.value;
         const father = popup.querySelector('#bc-pop-baby-father')?.value;
-        const ageDays = parseInt(popup.querySelector('#bc-pop-baby-age')?.value) || 0;
+        const ageVal = parseInt(popup.querySelector('#bc-pop-baby-age')?.value) || 0;
+        const ageUnit = popup.querySelector('#bc-pop-baby-age-unit')?.value || 'days';
+        let ageDays = ageVal;
+        if (ageUnit === 'months') ageDays = ageVal * 30;
+        if (ageUnit === 'years') ageDays = ageVal * 365;
         const weight = parseInt(popup.querySelector('#bc-pop-baby-weight')?.value) || 3200;
         const note = popup.querySelector('#bc-pop-baby-note')?.value?.trim();
         closePopup();
         if (onDone) onDone({ name, sex, father, ageDays, weight, note });
     });
+}
+
+// ========================
+// УВЕДОМЛЕНИЕ (авто-закрытие)
+// ========================
+export function showNotice(text, duration = 3000) {
+    const html = `
+        <div class="bc-notice-content">
+            <p>${text}</p>
+        </div>
+    `;
+    const popup = showPopup(html, { title: '🐰 BunnyCycle' });
+    if (duration > 0) {
+        setTimeout(closePopup, duration);
+    }
+    return popup;
 }
 
 // ========================

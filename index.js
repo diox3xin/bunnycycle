@@ -21,7 +21,7 @@ import { RelationshipManager } from './core/relationshipManager.js';
 
 import { rebuild, renderDashboard, renderCharList, renderCycle, renderPregnancy, renderHealth, populateCharSelects, renderCharEditor, hideCharEditor, renderAuSettings, renderProfileList, renderRelList, renderBabyList, renderFamilyTree } from './ui/drawerUI.js';
 import { injectWidgets, attachWidgetListeners } from './ui/widgetRenderer.js';
-import { showAddCharPopup, showAddDiseasePopup, showAddInjuryPopup, showAddMedPopup, showAddRelPopup, showDiceResult, showStartPregPopup, showConfirm, showCreateBabyPopup } from './ui/popupManager.js';
+import { showAddCharPopup, showAddDiseasePopup, showAddInjuryPopup, showAddMedPopup, showAddRelPopup, showDiceResult, showStartPregPopup, showConfirm, showCreateBabyPopup, showNotice } from './ui/popupManager.js';
 import { LLM } from './utils/llmCaller.js';
 
 const EXT = 'bunnycycle';
@@ -104,8 +104,21 @@ function initDrawerEvents() {
 
     // === SYNC ===
     $d.on('click', '#bc-sync', async () => {
+        const s = getSettings();
+        const beforeCount = Object.keys(s.characters).length;
         await syncCharacters();
         rebuild();
+        const afterCount = Object.keys(s.characters).length;
+        const newChars = afterCount - beforeCount;
+        const charSummary = Object.entries(s.characters).map(([n, p]) => {
+            let info = `${n} (${p.bioSex === 'M' ? '♂' : '♀'}`;
+            if (p.eyeColor) info += `, глаза: ${p.eyeColor}`;
+            if (p.hairColor) info += `, волосы: ${p.hairColor}`;
+            if (p.race !== 'human') info += `, ${p.race}`;
+            info += ')';
+            return info;
+        }).join('<br>');
+        showNotice(`✅ Синхронизация завершена!<br>${afterCount} перс.${newChars > 0 ? ` (+${newChars} новых)` : ''}<br><br>${charSummary}`, 4000);
     });
 
     // === TIME ===
@@ -858,12 +871,21 @@ Chat:
 ${msgs}`;
 
     LOG('🤖 AI reparse запущен...');
+    showNotice('🤖 ИИ-анализ запущен...', 0);
 
     const response = await LLM.call(systemPrompt, userPrompt);
-    if (!response) { LOG('AI reparse: нет ответа от LLM'); return; }
+    if (!response) {
+        LOG('AI reparse: нет ответа от LLM');
+        showNotice('❌ ИИ-анализ: нет ответа от LLM. Проверьте подключение API.', 4000);
+        return;
+    }
 
     const data = LLM.parseJSON(response);
-    if (!data) { LOG('AI reparse: не удалось разобрать JSON', response); return; }
+    if (!data) {
+        LOG('AI reparse: не удалось разобрать JSON', response);
+        showNotice('❌ ИИ-анализ: не удалось разобрать ответ LLM.', 4000);
+        return;
+    }
 
     LOG('AI reparse результат:', data);
 
@@ -929,4 +951,15 @@ ${msgs}`;
 
     saveSettings();
     LOG('✅ AI reparse завершён');
+
+    // Сводка
+    const charCount = data.characters ? Object.keys(data.characters).length : 0;
+    const childCount = data.children?.length || 0;
+    const relCount = data.relationships?.length || 0;
+    let summary = '✅ ИИ-анализ завершён!';
+    if (charCount) summary += `<br>👤 Персонажей обновлено: ${charCount}`;
+    if (childCount) summary += `<br>👶 Детей найдено: ${childCount}`;
+    if (relCount) summary += `<br>❤️ Отношений найдено: ${relCount}`;
+    if (!charCount && !childCount && !relCount) summary += '<br>Новых данных не обнаружено.';
+    showNotice(summary, 5000);
 }

@@ -157,9 +157,31 @@ function guessRace(text) {
 }
 
 function guessColor(text, target) {
-    const re = new RegExp(`(\\S+)\\s+${target}`, 'i');
-    const match = text.match(re);
-    return match ? match[1] : null;
+    // Множественные паттерны для русского и английского
+    const patterns = [
+        // "голубые глаза", "зелёные глаза", "русые волосы"
+        new RegExp(`(\\S+)\\s+${target}`, 'i'),
+        // "глаза: голубые", "волосы: русые"
+        new RegExp(`${target}\\s*[:—–-]\\s*(\\S+)`, 'i'),
+        // "цвет глаз: голубые", "Eye color: blue"
+        new RegExp(`цвет\\s+${target}\\s*[:—–-]\\s*([^,\\.\\n]+)`, 'i'),
+        // "Eyes: blue", "Hair: blonde"
+        new RegExp(`${target === 'глаз' ? '(?:eyes?|глаз)' : '(?:hair|волос)'}\\s*[:—–-]\\s*([^,\\.\\n]+)`, 'i'),
+        // "blue eyes", "blonde hair"
+        new RegExp(`(\\S+)\\s+${target === 'глаз' ? 'eyes?' : 'hair'}`, 'i'),
+        // "eye color: blue", "hair color: blonde"
+        new RegExp(`${target === 'глаз' ? 'eye' : 'hair'}\\s*color\\s*[:—–-]\\s*([^,\\.\\n]+)`, 'i'),
+        // "с голубыми глазами", "с русыми волосами"
+        new RegExp(`с\\s+(\\S+(?:ми|ыми|ими))\\s+${target}`, 'i'),
+    ];
+    for (const re of patterns) {
+        const match = text.match(re);
+        if (match) {
+            const val = (match[1] || '').trim();
+            if (val && val.length > 1 && val.length < 30) return val;
+        }
+    }
+    return null;
 }
 
 function guessSecondarySex(text) {
