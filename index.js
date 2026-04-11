@@ -36,13 +36,13 @@ jQuery(async () => {
     initSettings();
 
     // 2. Загрузка HTML шаблона
-    const drawerHtml = await $.get(`/scripts/extensions/third_party/${EXT}/assets/templates/drawer.html`);
+    const drawerHtml = await $.get(`/scripts/extensions/third-party/${EXT}/assets/templates/drawer.html`);
     $('#extensions_settings2').append(drawerHtml);
 
     // 3. Загрузка CSS
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = `/scripts/extensions/third_party/${EXT}/assets/styles/main.css`;
+    link.href = `/scripts/extensions/third-party/${EXT}/assets/styles/main.css`;
     document.head.appendChild(link);
 
     // 4. Инициализация UI
