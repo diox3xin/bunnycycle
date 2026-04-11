@@ -19,7 +19,7 @@ import { TimeManager } from './core/timeManager.js';
 import { generatePrompt, parseResponseTags, stripTags } from './core/promptBuilder.js';
 import { RelationshipManager } from './core/relationshipManager.js';
 
-import { rebuild, renderDashboard, renderCharList, renderCycle, renderPregnancy, renderHealth, populateCharSelects } from './ui/drawerUI.js';
+import { rebuild, renderDashboard, renderCharList, renderCycle, renderPregnancy, renderHealth, populateCharSelects, renderCharEditor, hideCharEditor, renderAuSettings, renderProfileList } from './ui/drawerUI.js';
 import { injectWidgets, attachWidgetListeners } from './ui/widgetRenderer.js';
 import { showAddCharPopup, showAddDiseasePopup, showAddInjuryPopup, showAddMedPopup, showAddRelPopup, showDiceResult, showStartPregPopup, showConfirm } from './ui/popupManager.js';
 
@@ -277,6 +277,166 @@ function initDrawerEvents() {
         }
         saveSettings();
         rebuild();
+    });
+
+    // === CHARACTER EDITOR ===
+    $d.on('click', '.bc-edit-char', function () {
+        const name = $(this).data('char');
+        renderCharEditor(name);
+    });
+    $d.on('click', '.bc-close-editor', () => hideCharEditor());
+    $d.on('click', '.bc-save-editor', () => {
+        const s = getSettings();
+        const name = $('#bc-edit-name').val();
+        const p = s.characters[name];
+        if (!p) return;
+        // Основные поля
+        $('.bc-ed').each(function () {
+            const field = $(this).data('field');
+            const val = this.type === 'number' ? (parseFloat(this.value) || 0) : this.value;
+            p[field] = val;
+        });
+        // Цикл
+        if (!p.cycle) p.cycle = {};
+        $('.bc-ed-cyc').each(function () {
+            const field = $(this).data('field');
+            if (this.type === 'checkbox') {
+                p.cycle[field] = this.checked;
+            } else if (this.type === 'number') {
+                p.cycle[field] = parseInt(this.value) || 0;
+            } else {
+                p.cycle[field] = this.value;
+            }
+        });
+        saveSettings();
+        hideCharEditor();
+        rebuild();
+    });
+
+    // === PREGNANCY COMPLICATIONS REMOVE ===
+    $d.on('click', '.bc-rm-preg-comp', function () {
+        const idx = parseInt($(this).data('idx'));
+        const s = getSettings();
+        const p = s.characters[$('#bc-preg-char').val()];
+        if (p?.pregnancy?.complications) {
+            p.pregnancy.complications.splice(idx, 1);
+            saveSettings();
+            renderPregnancy();
+        }
+    });
+    $d.on('click', '.bc-rm-all-preg-comp', () => {
+        const s = getSettings();
+        const p = s.characters[$('#bc-preg-char').val()];
+        if (p?.pregnancy) {
+            p.pregnancy.complications = [];
+            saveSettings();
+            renderPregnancy();
+        }
+    });
+
+    // === LABOR COMPLICATIONS REMOVE ===
+    $d.on('click', '.bc-rm-labor-comp', function () {
+        const idx = parseInt($(this).data('idx'));
+        const s = getSettings();
+        const p = s.characters[$('#bc-preg-char').val()];
+        if (p?.labor?.complications) {
+            p.labor.complications.splice(idx, 1);
+            saveSettings();
+            renderPregnancy();
+        }
+    });
+    $d.on('click', '.bc-rm-all-labor-comp', () => {
+        const s = getSettings();
+        const p = s.characters[$('#bc-preg-char').val()];
+        if (p?.labor) {
+            p.labor.complications = [];
+            saveSettings();
+            renderPregnancy();
+        }
+    });
+
+    // === AU SETTINGS (Omegaverse) ===
+    $d.on('change input', '.bc-au-ov', function () {
+        const s = getSettings();
+        if (!s.auSettings) s.auSettings = {};
+        if (!s.auSettings.omegaverse) s.auSettings.omegaverse = {};
+        const field = $(this).data('field');
+        if (this.type === 'checkbox') {
+            s.auSettings.omegaverse[field] = this.checked;
+        } else if (this.type === 'number') {
+            s.auSettings.omegaverse[field] = parseFloat(this.value) || 0;
+        } else {
+            s.auSettings.omegaverse[field] = this.value;
+        }
+        saveSettings();
+    });
+
+    // === AU SETTINGS (Fantasy) ===
+    $d.on('change input', '.bc-au-fan', function () {
+        const s = getSettings();
+        if (!s.auSettings?.fantasy) return;
+        const field = $(this).data('field');
+        if (this.type === 'checkbox') {
+            s.auSettings.fantasy[field] = this.checked;
+        } else if (this.type === 'number') {
+            s.auSettings.fantasy[field] = parseFloat(this.value) || 0;
+        } else {
+            s.auSettings.fantasy[field] = this.value;
+        }
+        saveSettings();
+    });
+    $d.on('change input', '.bc-au-fan-race', function () {
+        const s = getSettings();
+        const race = $(this).data('race');
+        if (s.auSettings?.fantasy?.pregnancyByRace) {
+            s.auSettings.fantasy.pregnancyByRace[race] = parseInt(this.value) || 40;
+            saveSettings();
+        }
+    });
+
+    // === AU SETTINGS (Oviposition) ===
+    $d.on('change input', '.bc-au-ovi', function () {
+        const s = getSettings();
+        if (!s.auSettings) s.auSettings = {};
+        if (!s.auSettings.oviposition) s.auSettings.oviposition = {};
+        const field = $(this).data('field');
+        if (this.type === 'checkbox') {
+            s.auSettings.oviposition[field] = this.checked;
+        } else if (this.type === 'number') {
+            s.auSettings.oviposition[field] = parseFloat(this.value) || 0;
+        } else {
+            s.auSettings.oviposition[field] = this.value;
+        }
+        saveSettings();
+    });
+
+    // AU preset change → re-render AU settings
+    $d.on('change', '#bc-au-preset', function () {
+        getSettings().auPreset = this.value;
+        saveSettings();
+        renderAuSettings();
+    });
+
+    // === PROFILE LIST ACTIONS ===
+    $d.on('click', '.bc-prof-load-one', function () {
+        const id = $(this).data('id');
+        const s = getSettings();
+        if (s.chatProfiles?.[id]) {
+            Object.assign(s, { characters: JSON.parse(JSON.stringify(s.chatProfiles[id].characters || {})) });
+            saveSettings();
+            rebuild();
+        }
+    });
+    $d.on('click', '.bc-prof-del', function () {
+        const id = $(this).data('id');
+        showConfirm(`Удалить профиль?`, () => {
+            const s = getSettings();
+            if (s.chatProfiles?.[id]) {
+                delete s.chatProfiles[id];
+                saveSettings();
+                renderProfileList();
+            }
+        });
     });
 
     // === FAMILY ===

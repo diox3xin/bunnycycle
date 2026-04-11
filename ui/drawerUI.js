@@ -228,7 +228,15 @@ export function renderPregnancy() {
         <div class="bc-stat-row"><span class="bc-stat-label">До родов</span><span class="bc-stat-value">~${pe.dueDate} нед.</span></div>
         <div class="bc-stat-row"><span class="bc-stat-label">Высокий риск?</span><span class="bc-stat-value">${pe.isHighRisk ? '⚠ Да' : '✓ Нет'}</span></div>
         ${pe.symptoms.length ? `<div class="bc-stat-row"><span class="bc-stat-label">Симптомы</span><span class="bc-stat-value">${pe.symptoms.join(', ')}</span></div>` : ''}
-        ${pe.pr.complications.length ? `<div class="bc-stat-row"><span class="bc-stat-label">⚠ Осложнения</span><span class="bc-stat-value bc-danger-text">${pe.pr.complications.join(', ')}</span></div>` : ''}
+        ${pe.pr.complications.length ? `
+            <div class="bc-stat-row">
+                <span class="bc-stat-label">⚠ Осложнения</span>
+                <span class="bc-stat-value bc-danger-text">${pe.pr.complications.map((c, i) =>
+                    `${escapeHtml(c)} <button class="bc-icon-btn bc-rm-preg-comp" data-idx="${i}" title="Убрать"><i class="fa-solid fa-xmark"></i></button>`
+                ).join(', ')}</span>
+            </div>
+            <button class="bc-btn-sm bc-rm-all-preg-comp">✕ Убрать все осложнения</button>
+        ` : ''}
         <div class="bc-btn-group" style="margin-top:8px">
             <button class="bc-btn-sm" id="bc-preg-advance">+1 неделя</button>
             <button class="bc-btn-sm" id="bc-preg-complication">+ Осложнение</button>
@@ -261,7 +269,15 @@ function renderLabor(charName) {
         <div class="bc-stat-row"><span class="bc-stat-label">Схватки</span><span class="bc-stat-value">каждые ${le.contractionInfo.interval}</span></div>
         <div class="bc-stat-row"><span class="bc-stat-label">Часов прошло</span><span class="bc-stat-value">${le.l.hoursElapsed}</span></div>
         <div class="bc-stat-row"><span class="bc-stat-label">Родилось</span><span class="bc-stat-value">${le.l.babiesDelivered}/${le.l.totalBabies}</span></div>
-        ${le.l.complications.length ? `<div class="bc-stat-row"><span class="bc-stat-label">⚠ Осложнения</span><span class="bc-stat-value bc-danger-text">${le.l.complications.join(', ')}</span></div>` : ''}
+        ${le.l.complications.length ? `
+            <div class="bc-stat-row">
+                <span class="bc-stat-label">⚠ Осложнения</span>
+                <span class="bc-stat-value bc-danger-text">${le.l.complications.map((c, i) =>
+                    `${escapeHtml(c)} <button class="bc-icon-btn bc-rm-labor-comp" data-idx="${i}" title="Убрать"><i class="fa-solid fa-xmark"></i></button>`
+                ).join(', ')}</span>
+            </div>
+            <button class="bc-btn-sm bc-rm-all-labor-comp">✕ Убрать все осложнения</button>
+        ` : ''}
         <p class="bc-info-text">${le.stageDescription}</p>
         <div class="bc-btn-group">
             <button class="bc-btn primary" id="bc-labor-advance">Следующая стадия</button>
@@ -425,6 +441,205 @@ export function populateCharSelects() {
 }
 
 // ========================
+// РЕНДЕР РЕДАКТОРА ПЕРСОНАЖА
+// ========================
+export function renderCharEditor(charName) {
+    const s = getSettings();
+    const p = s.characters[charName];
+    if (!p) return;
+    ensureProfileFields(p);
+
+    const el = document.getElementById('bc-char-editor');
+    if (!el) return;
+    el.style.display = '';
+
+    const sexOptions = ['F', 'M'].map(v => `<option value="${v}" ${p.bioSex === v ? 'selected' : ''}>${v === 'F' ? '♀ Женский' : '♂ Мужской'}</option>`).join('');
+    const sec = ['', 'alpha', 'beta', 'omega'].map(v => `<option value="${v}" ${(p.secondarySex || '') === v ? 'selected' : ''}>${v ? v[0].toUpperCase() + v.slice(1) : '—'}</option>`).join('');
+    const races = ['human','elf','dwarf','orc','demon','vampire','werewolf','fairy','dragon','halfling','other'].map(v => `<option value="${v}" ${p.race === v ? 'selected' : ''}>${v}</option>`).join('');
+    const contras = ['none','condom','pill','iud','implant','injection','natural','magic'].map(v => `<option value="${v}" ${p.contraception === v ? 'selected' : ''}>${v}</option>`).join('');
+    const diffs = ['easy','normal','hard','impossible'].map(v => `<option value="${v}" ${p.pregnancyDifficulty === v ? 'selected' : ''}>${v === 'easy' ? 'Лёгкая' : v === 'normal' ? 'Нормальная' : v === 'hard' ? 'Тяжёлая' : 'Невозможна'}</option>`).join('');
+    const symInt = ['mild','moderate','strong'].map(v => `<option value="${v}" ${p.cycle?.symptomIntensity === v ? 'selected' : ''}>${v === 'mild' ? 'Слабые' : v === 'moderate' ? 'Умеренные' : 'Сильные'}</option>`).join('');
+
+    el.innerHTML = `
+        <div class="bc-section-head"><i class="fa-solid fa-pen"></i> Редактор: ${escapeHtml(charName)}
+            <button class="bc-icon-btn bc-close-editor" title="Закрыть"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <input type="hidden" id="bc-edit-name" value="${escapeHtml(charName)}">
+
+        <div class="bc-row"><label>Пол</label><select class="bc-select bc-ed" data-field="bioSex">${sexOptions}</select></div>
+        <div class="bc-row"><label>Вторичный пол</label><select class="bc-select bc-ed" data-field="secondarySex">${sec}</select></div>
+        <div class="bc-row"><label>Раса</label><select class="bc-select bc-ed" data-field="race">${races}</select></div>
+        <div class="bc-row"><label>Возраст</label><input class="bc-input bc-ed" data-field="age" type="number" value="${p.age || ''}" min="0" max="9999" placeholder="—"></div>
+        <div class="bc-row"><label>Цвет глаз</label><input class="bc-input bc-ed" data-field="eyeColor" value="${escapeHtml(p.eyeColor || '')}"></div>
+        <div class="bc-row"><label>Цвет волос</label><input class="bc-input bc-ed" data-field="hairColor" value="${escapeHtml(p.hairColor || '')}"></div>
+        <div class="bc-row"><label>Контрацепция</label><select class="bc-select bc-ed" data-field="contraception">${contras}</select></div>
+        <div class="bc-row"><label>Сложность берем.</label><select class="bc-select bc-ed" data-field="pregnancyDifficulty">${diffs}</select></div>
+
+        <div class="bc-section-head" style="margin-top:8px"><i class="fa-solid fa-circle-notch"></i> Цикл</div>
+        <label class="bc-checkbox"><input type="checkbox" class="bc-ed-cyc" data-field="enabled" ${p.cycle?.enabled ? 'checked' : ''}> Цикл включён</label>
+        <div class="bc-row"><label>Длина цикла (дн.)</label><input class="bc-input bc-ed-cyc" data-field="baseLength" type="number" value="${p.cycle?.baseLength || 28}" min="20" max="45"></div>
+        <div class="bc-row"><label>Длит. менструации</label><input class="bc-input bc-ed-cyc" data-field="menstruationDuration" type="number" value="${p.cycle?.menstruationDuration || 5}" min="2" max="10"></div>
+        <div class="bc-row"><label>Нерегулярность (±дн.)</label><input class="bc-input bc-ed-cyc" data-field="irregularity" type="number" value="${p.cycle?.irregularity || 2}" min="0" max="10"></div>
+        <div class="bc-row"><label>Интенсивность симптомов</label><select class="bc-select bc-ed-cyc" data-field="symptomIntensity">${symInt}</select></div>
+        <div class="bc-row"><label>Текущий день</label><input class="bc-input bc-ed-cyc" data-field="currentDay" type="number" value="${p.cycle?.currentDay || 1}" min="1" max="45"></div>
+
+        <div class="bc-btn-group" style="margin-top:8px">
+            <button class="bc-btn primary bc-save-editor">💾 Сохранить</button>
+            <button class="bc-btn bc-close-editor">Закрыть</button>
+        </div>
+    `;
+}
+
+export function hideCharEditor() {
+    const el = document.getElementById('bc-char-editor');
+    if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+}
+
+// ========================
+// РЕНДЕР AU НАСТРОЕК
+// ========================
+export function renderAuSettings() {
+    const s = getSettings();
+    const el = document.getElementById('bc-au-settings');
+    if (!el) return;
+
+    const preset = s.auPreset;
+    let html = '';
+
+    if (preset === 'omegaverse') {
+        const o = s.auSettings.omegaverse;
+        html = `
+            <div class="bc-section-head"><i class="fa-solid fa-fire"></i> Течка (Omega)</div>
+            <div class="bc-row"><label>Цикл течки (дн.)</label><input class="bc-input bc-au-ov" data-field="heatCycleLength" type="number" value="${o.heatCycleLength}" min="7" max="90"></div>
+            <div class="bc-row"><label>Длительность (дн.)</label><input class="bc-input bc-au-ov" data-field="heatDuration" type="number" value="${o.heatDuration}" min="1" max="14"></div>
+            <div class="bc-row"><label>Пре-течка (дн.)</label><input class="bc-input bc-au-ov" data-field="preHeatDays" type="number" value="${o.preHeatDays}" min="0" max="5"></div>
+            <div class="bc-row"><label>Пост-течка (дн.)</label><input class="bc-input bc-au-ov" data-field="postHeatDays" type="number" value="${o.postHeatDays}" min="0" max="5"></div>
+            <div class="bc-row"><label>Интенсивность</label><select class="bc-select bc-au-ov" data-field="heatIntensity">
+                <option value="mild" ${o.heatIntensity==='mild'?'selected':''}>Слабая</option>
+                <option value="moderate" ${o.heatIntensity==='moderate'?'selected':''}>Умеренная</option>
+                <option value="strong" ${o.heatIntensity==='strong'?'selected':''}>Сильная</option>
+                <option value="overwhelming" ${o.heatIntensity==='overwhelming'?'selected':''}>Невыносимая</option>
+            </select></div>
+            <div class="bc-row"><label>Бонус фертильности</label><input class="bc-input bc-au-ov" data-field="heatFertilityBonus" type="number" value="${o.heatFertilityBonus}" min="0" max="1" step="0.05"></div>
+
+            <div class="bc-section-head"><i class="fa-solid fa-fire-flame-curved"></i> Гон (Alpha)</div>
+            <div class="bc-row"><label>Цикл гона (дн.)</label><input class="bc-input bc-au-ov" data-field="rutCycleLength" type="number" value="${o.rutCycleLength}" min="7" max="90"></div>
+            <div class="bc-row"><label>Длительность (дн.)</label><input class="bc-input bc-au-ov" data-field="rutDuration" type="number" value="${o.rutDuration}" min="1" max="14"></div>
+            <div class="bc-row"><label>Пре-гон (дн.)</label><input class="bc-input bc-au-ov" data-field="preRutDays" type="number" value="${o.preRutDays}" min="0" max="5"></div>
+            <div class="bc-row"><label>Пост-гон (дн.)</label><input class="bc-input bc-au-ov" data-field="postRutDays" type="number" value="${o.postRutDays}" min="0" max="5"></div>
+            <div class="bc-row"><label>Интенсивность</label><select class="bc-select bc-au-ov" data-field="rutIntensity">
+                <option value="mild" ${o.rutIntensity==='mild'?'selected':''}>Слабая</option>
+                <option value="moderate" ${o.rutIntensity==='moderate'?'selected':''}>Умеренная</option>
+                <option value="strong" ${o.rutIntensity==='strong'?'selected':''}>Сильная</option>
+                <option value="overwhelming" ${o.rutIntensity==='overwhelming'?'selected':''}>Невыносимая</option>
+            </select></div>
+
+            <div class="bc-section-head"><i class="fa-solid fa-link"></i> Связь / Вязка</div>
+            <label class="bc-checkbox"><input type="checkbox" class="bc-au-ov" data-field="knotEnabled" ${o.knotEnabled?'checked':''}> Вязка (knot)</label>
+            <div class="bc-row"><label>Мин. длительность (мин.)</label><input class="bc-input bc-au-ov" data-field="knotDurationMin" type="number" value="${o.knotDurationMin}" min="5" max="120"></div>
+            <label class="bc-checkbox"><input type="checkbox" class="bc-au-ov" data-field="bondingEnabled" ${o.bondingEnabled?'checked':''}> Связь (bonding)</label>
+            <div class="bc-row"><label>Тип связи</label><select class="bc-select bc-au-ov" data-field="bondingType">
+                <option value="bite" ${o.bondingType==='bite'?'selected':''}>Укус</option>
+                <option value="mark" ${o.bondingType==='mark'?'selected':''}>Метка</option>
+                <option value="scent" ${o.bondingType==='scent'?'selected':''}>Запах</option>
+                <option value="magic" ${o.bondingType==='magic'?'selected':''}>Магия</option>
+            </select></div>
+            <label class="bc-checkbox"><input type="checkbox" class="bc-au-ov" data-field="bondEffectEmpathy" ${o.bondEffectEmpathy?'checked':''}> Эмпатия через связь</label>
+            <label class="bc-checkbox"><input type="checkbox" class="bc-au-ov" data-field="bondEffectProximity" ${o.bondEffectProximity?'checked':''}> Тяга к близости</label>
+            <label class="bc-checkbox"><input type="checkbox" class="bc-au-ov" data-field="bondEffectProtective" ${o.bondEffectProtective?'checked':''}> Защитный инстинкт</label>
+            <label class="bc-checkbox"><input type="checkbox" class="bc-au-ov" data-field="bondBreakable" ${o.bondBreakable?'checked':''}> Связь можно разорвать</label>
+            <div class="bc-row"><label>Абстиненция (дн.)</label><input class="bc-input bc-au-ov" data-field="bondWithdrawalDays" type="number" value="${o.bondWithdrawalDays}" min="1" max="30"></div>
+
+            <div class="bc-section-head"><i class="fa-solid fa-flask"></i> Супрессанты и прочее</div>
+            <label class="bc-checkbox"><input type="checkbox" class="bc-au-ov" data-field="suppressantsAvailable" ${o.suppressantsAvailable?'checked':''}> Супрессанты доступны</label>
+            <div class="bc-row"><label>Эффективность</label><input class="bc-input bc-au-ov" data-field="suppressantEffectiveness" type="number" value="${o.suppressantEffectiveness}" min="0" max="1" step="0.05"></div>
+            <label class="bc-checkbox"><input type="checkbox" class="bc-au-ov" data-field="suppressantSideEffects" ${o.suppressantSideEffects?'checked':''}> Побочные эффекты</label>
+            <label class="bc-checkbox"><input type="checkbox" class="bc-au-ov" data-field="slickEnabled" ${o.slickEnabled?'checked':''}> Смазка (slick)</label>
+            <label class="bc-checkbox"><input type="checkbox" class="bc-au-ov" data-field="scentEnabled" ${o.scentEnabled?'checked':''}> Запахи (scent)</label>
+            <label class="bc-checkbox"><input type="checkbox" class="bc-au-ov" data-field="nestingEnabled" ${o.nestingEnabled?'checked':''}> Гнездование</label>
+            <label class="bc-checkbox"><input type="checkbox" class="bc-au-ov" data-field="purringEnabled" ${o.purringEnabled?'checked':''}> Мурлыканье</label>
+            <label class="bc-checkbox"><input type="checkbox" class="bc-au-ov" data-field="maleOmegaPregnancy" ${o.maleOmegaPregnancy?'checked':''}> Мужская омега-беременность</label>
+            <div class="bc-row"><label>Длит. беременности (нед.)</label><input class="bc-input bc-au-ov" data-field="pregnancyWeeks" type="number" value="${o.pregnancyWeeks}" min="20" max="50"></div>
+            <div class="bc-row"><label>Шанс двойни</label><input class="bc-input bc-au-ov" data-field="twinChance" type="number" value="${o.twinChance}" min="0" max="1" step="0.05"></div>
+            <label class="bc-checkbox"><input type="checkbox" class="bc-au-ov" data-field="alphaCommandVoice" ${o.alphaCommandVoice?'checked':''}> Командный голос (альфа)</label>
+            <label class="bc-checkbox"><input type="checkbox" class="bc-au-ov" data-field="omegaSubmission" ${o.omegaSubmission?'checked':''}> Подчинение (омега)</label>
+        `;
+    } else if (preset === 'fantasy') {
+        const f = s.auSettings.fantasy;
+        const raceWeeks = f.pregnancyByRace || {};
+        html = `
+            <div class="bc-section-head"><i class="fa-solid fa-hat-wizard"></i> Фэнтези: сроки по расам</div>
+            ${Object.entries(raceWeeks).map(([r, w]) => `
+                <div class="bc-row"><label>${r}</label><input class="bc-input bc-au-fan-race" data-race="${r}" type="number" value="${w}" min="5" max="200"> нед.</div>
+            `).join('')}
+            <label class="bc-checkbox"><input type="checkbox" class="bc-au-fan" data-field="magicPregnancy" ${f.magicPregnancy?'checked':''}> Магическая беременность</label>
+            <label class="bc-checkbox"><input type="checkbox" class="bc-au-fan" data-field="acceleratedPregnancy" ${f.acceleratedPregnancy?'checked':''}> Ускоренная беременность</label>
+            <div class="bc-row"><label>Фактор ускорения</label><input class="bc-input bc-au-fan" data-field="accelerationFactor" type="number" value="${f.accelerationFactor}" min="0.1" max="10" step="0.1"></div>
+        `;
+    }
+
+    // Овипозиция (для всех пресетов)
+    const ovi = s.auSettings.oviposition;
+    html += `
+        <div class="bc-section-head" style="margin-top:8px"><i class="fa-solid fa-egg"></i> Овипозиция</div>
+        <label class="bc-checkbox"><input type="checkbox" class="bc-au-ovi" data-field="enabled" ${ovi.enabled?'checked':''}> Включена</label>
+        <div class="bc-row"><label>Мин. яиц</label><input class="bc-input bc-au-ovi" data-field="eggCountMin" type="number" value="${ovi.eggCountMin}" min="1" max="20"></div>
+        <div class="bc-row"><label>Макс. яиц</label><input class="bc-input bc-au-ovi" data-field="eggCountMax" type="number" value="${ovi.eggCountMax}" min="1" max="20"></div>
+        <div class="bc-row"><label>Вынашивание (дн.)</label><input class="bc-input bc-au-ovi" data-field="gestationDays" type="number" value="${ovi.gestationDays}" min="1" max="90"></div>
+        <div class="bc-row"><label>Откладывание (дн.)</label><input class="bc-input bc-au-ovi" data-field="layingDuration" type="number" value="${ovi.layingDuration}" min="1" max="10"></div>
+        <div class="bc-row"><label>Инкубация (дн.)</label><input class="bc-input bc-au-ovi" data-field="incubationDays" type="number" value="${ovi.incubationDays}" min="1" max="90"></div>
+        <div class="bc-row"><label>Шанс оплодотворения</label><input class="bc-input bc-au-ovi" data-field="fertilizationChance" type="number" value="${ovi.fertilizationChance}" min="0" max="1" step="0.05"></div>
+        <div class="bc-row"><label>Тип скорлупы</label><select class="bc-select bc-au-ovi" data-field="shellType">
+            <option value="hard" ${ovi.shellType==='hard'?'selected':''}>Твёрдая</option>
+            <option value="soft" ${ovi.shellType==='soft'?'selected':''}>Мягкая</option>
+            <option value="leathery" ${ovi.shellType==='leathery'?'selected':''}>Кожистая</option>
+        </select></div>
+        <div class="bc-row"><label>Размер яиц</label><select class="bc-select bc-au-ovi" data-field="eggSize">
+            <option value="small" ${ovi.eggSize==='small'?'selected':''}>Маленькие</option>
+            <option value="medium" ${ovi.eggSize==='medium'?'selected':''}>Средние</option>
+            <option value="large" ${ovi.eggSize==='large'?'selected':''}>Большие</option>
+        </select></div>
+        <div class="bc-row"><label>Болезненность</label><select class="bc-select bc-au-ovi" data-field="painLevel">
+            <option value="none" ${ovi.painLevel==='none'?'selected':''}>Нет</option>
+            <option value="mild" ${ovi.painLevel==='mild'?'selected':''}>Слабая</option>
+            <option value="moderate" ${ovi.painLevel==='moderate'?'selected':''}>Умеренная</option>
+            <option value="severe" ${ovi.painLevel==='severe'?'selected':''}>Сильная</option>
+        </select></div>
+    `;
+
+    el.innerHTML = html;
+}
+
+// ========================
+// РЕНДЕР СПИСКА ПРОФИЛЕЙ
+// ========================
+export function renderProfileList() {
+    const s = getSettings();
+    const el = document.getElementById('bc-prof-list');
+    if (!el) return;
+
+    const profiles = Object.keys(s.chatProfiles || {});
+    if (!profiles.length) {
+        el.innerHTML = '<div class="bc-empty">Нет сохранённых профилей</div>';
+        return;
+    }
+
+    el.innerHTML = profiles.map(id => {
+        const pr = s.chatProfiles[id];
+        const count = Object.keys(pr.characters || {}).length;
+        const isCurrent = id === s.currentChatId;
+        return `
+            <div class="bc-prof-row ${isCurrent ? 'bc-prof-current' : ''}">
+                <span class="bc-prof-id">${escapeHtml(id.substring(0, 20))}...</span>
+                <span class="bc-prof-count">${count} перс.</span>
+                <button class="bc-icon-btn bc-prof-load-one" data-id="${escapeHtml(id)}" title="Загрузить"><i class="fa-solid fa-download"></i></button>
+                <button class="bc-icon-btn bc-prof-del" data-id="${escapeHtml(id)}" title="Удалить"><i class="fa-solid fa-trash"></i></button>
+            </div>
+        `;
+    }).join('');
+}
+
+// ========================
 // ПОЛНЫЙ REBUILD
 // ========================
 export function rebuild() {
@@ -434,4 +649,6 @@ export function rebuild() {
     renderCycle();
     renderPregnancy();
     renderHealth();
+    renderAuSettings();
+    renderProfileList();
 }
