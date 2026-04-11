@@ -315,54 +315,66 @@
 .bc-popup-close { font-size: 14px; }
 
 /* ============================================
-   ВИДЖЕТ В СООБЩЕНИЯХ
+   ВИДЖЕТ В СООБЩЕНИЯХ (подробный)
    ============================================ */
 .bc-widget {
     margin: 8px 0 4px; border: 1px solid rgba(200,140,255,0.2);
-    border-radius: 8px; background: rgba(200,140,255,0.04);
-    overflow: hidden; font-size: 12px;
+    border-radius: 10px; background: rgba(200,140,255,0.03);
+    overflow: hidden; font-size: 12px; line-height: 1.5;
 }
 .bc-widget-header {
-    display: flex; align-items: center; gap: 6px;
-    padding: 5px 10px; cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 12px; cursor: pointer;
     background: rgba(200,140,255,0.08);
 }
-.bc-widget-icon { font-size: 14px; }
-.bc-widget-date { font-size: 10px; color: rgba(255,255,255,0.4); }
-.bc-widget-divider { color: rgba(255,255,255,0.15); }
-.bc-widget-summary { flex: 1; font-size: 11px; }
+.bc-widget-icon { font-size: 15px; }
+.bc-widget-date { font-size: 11px; color: rgba(255,255,255,0.5); flex: 1; }
 .bc-widget-toggle {
     background: none; border: none; cursor: pointer;
-    color: rgba(255,255,255,0.4); padding: 2px 4px; transition: color 0.2s;
+    color: rgba(255,255,255,0.4); padding: 2px 6px; transition: color 0.2s;
 }
 .bc-widget-toggle:hover { color: #c88cff; }
-.bc-widget-body { padding: 8px 10px; border-top: 1px solid rgba(255,255,255,0.06); }
-.bc-widget-chars { display: flex; flex-wrap: wrap; gap: 6px; }
-.bc-widget-events { margin-top: 6px; }
+.bc-widget-body {
+    padding: 8px 12px; border-top: 1px solid rgba(255,255,255,0.06);
+    display: flex; flex-direction: column; gap: 8px;
+}
 
-/* Мини-карточка в виджете */
-.bc-wchar {
-    display: flex; align-items: center; gap: 4px;
-    padding: 3px 8px; border-radius: 6px;
-    background: rgba(255,255,255,0.04);
+/* Блок персонажа в виджете */
+.bc-wchar-block {
+    padding: 8px 10px; border-radius: 8px;
+    background: rgba(255,255,255,0.03);
+    border-left: 3px solid rgba(200,140,255,0.3);
 }
-.bc-wchar-name { font-weight: 500; font-size: 11px; }
-.bc-wchar-badge {
-    display: inline-flex; align-items: center; padding: 1px 4px;
-    border-radius: 8px; font-size: 9px; background: rgba(255,255,255,0.08);
+.bc-wchar-head {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    margin-bottom: 6px;
 }
-.bc-wchar-minical { display: flex; gap: 2px; margin: 0 4px; }
-.bc-mc-dot {
-    width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.15);
+.bc-wchar-name {
+    font-weight: 600; font-size: 12px;
+    color: rgba(255,255,255,0.9);
 }
-.bc-mc-today { outline: 1px solid #c88cff; transform: scale(1.3); }
-.bc-mc-mens { background: rgba(255,100,120,0.5); }
-.bc-mc-foll { background: rgba(200,140,255,0.4); }
-.bc-mc-ovul { background: rgba(100,220,140,0.5); }
-.bc-mc-lut { background: rgba(240,200,80,0.4); }
-
-.bc-wevent { font-size: 10px; padding: 2px 0; }
-.bc-wsuccess { color: #64dc8c; }
+.bc-wchar-sex {
+    font-size: 11px; color: rgba(255,255,255,0.5);
+}
+.bc-wbadge {
+    display: inline-flex; align-items: center; padding: 1px 6px;
+    border-radius: 8px; font-size: 9px; font-weight: 500;
+    background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.85);
+    white-space: nowrap;
+}
+.bc-wchar-details {
+    font-size: 11px; color: rgba(255,255,255,0.75);
+    line-height: 1.6;
+}
+.bc-wchar-details b {
+    color: rgba(255,255,255,0.95); font-weight: 600;
+}
+.bc-w-dim {
+    color: rgba(255,255,255,0.45); font-size: 10px;
+}
+.bc-w-warn {
+    color: #f0a050; font-size: 11px; font-weight: 500;
+}
 
 /* ============================================
    МОБИЛЬНАЯ АДАПТАЦИЯ
