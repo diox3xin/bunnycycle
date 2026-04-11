@@ -1,0 +1,18 @@
+<!-- BunnyCycle v3.0 — Виджет в сообщениях -->
+<div class="bc-widget" data-msg-id="{{msgId}}">
+    <div class="bc-widget-header">
+        <span class="bc-widget-icon">🐰</span>
+        <span class="bc-widget-date">{{date}}</span>
+        <span class="bc-widget-divider">|</span>
+        <span class="bc-widget-summary">{{summary}}</span>
+        <button class="bc-widget-toggle" title="Развернуть">
+            <i class="fa-solid fa-chevron-down"></i>
+        </button>
+    </div>
+    <div class="bc-widget-body" style="display:none;">
+        <!-- Мини-карточки персонажей -->
+        <div class="bc-widget-chars">{{charCards}}</div>
+        <!-- Активные события -->
+        <div class="bc-widget-events">{{events}}</div>
+    </div>
+</div>

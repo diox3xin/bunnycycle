@@ -1,12 +1,12 @@
 {
-    "display_name": "bunnycycle",
+    "display_name": "BunnyCycle",
     "loading_order": 100,
     "requires": [],
     "optional": [],
     "js": "index.js",
-    "css": "style.css",
+    "css": "assets/styles/main.css",
     "author": "harubunny",
-    "version": "beta 1.0",
+    "version": "3.0.0",
     "homePage": "https://github.com/diox3xin/bunnycycle/",
     "auto_update": true
 }

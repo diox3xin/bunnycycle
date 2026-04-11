@@ -1,0 +1,353 @@
+<!-- BunnyCycle v3.0 — Drawer панель -->
+<div id="bc_drawer" class="drawer">
+    <div class="drawer-toggle">
+        <div id="bc_drawer_icon" class="drawer-icon fa-solid fa-rabbit interactable" title="BunnyCycle 🐰" tabindex="0">🐰</div>
+    </div>
+    <div id="bc_drawer_content" class="drawer-content closedDrawer">
+        <!-- Шапка -->
+        <div class="bc-header">
+            <div class="bc-title">
+                <span class="bc-logo">🐰</span>
+                <span>BunnyCycle</span>
+                <span class="bc-version">v3.0</span>
+            </div>
+            <div class="bc-header-actions">
+                <label class="bc-switch" title="Вкл/Выкл">
+                    <input type="checkbox" id="bc-enabled" checked>
+                    <span class="bc-slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Вкладки -->
+        <div class="bc-tabs">
+            <button class="bc-tab active" data-tab="dashboard" title="Обзор">
+                <i class="fa-solid fa-gauge"></i>
+                <span>Обзор</span>
+            </button>
+            <button class="bc-tab" data-tab="chars" title="Персонажи">
+                <i class="fa-solid fa-users"></i>
+                <span>Перс.</span>
+            </button>
+            <button class="bc-tab" data-tab="cycle" title="Цикл">
+                <i class="fa-solid fa-circle-notch"></i>
+                <span>Цикл</span>
+            </button>
+            <button class="bc-tab" data-tab="preg" title="Беременность">
+                <i class="fa-solid fa-baby"></i>
+                <span>Берем.</span>
+            </button>
+            <button class="bc-tab" data-tab="health" title="Здоровье">
+                <i class="fa-solid fa-heart-pulse"></i>
+                <span>Здоровье</span>
+            </button>
+            <button class="bc-tab" data-tab="family" title="Семья">
+                <i class="fa-solid fa-people-roof"></i>
+                <span>Семья</span>
+            </button>
+            <button class="bc-tab" data-tab="au" title="AU">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                <span>AU</span>
+            </button>
+            <button class="bc-tab" data-tab="settings" title="Настройки">
+                <i class="fa-solid fa-gear"></i>
+                <span>Настр.</span>
+            </button>
+        </div>
+
+        <!-- Контент вкладок -->
+        <div class="bc-tab-contents">
+
+            <!-- ====== ОБЗОР ====== -->
+            <div class="bc-tab-content active" data-tab="dashboard">
+                <div class="bc-section">
+                    <div class="bc-section-head"><i class="fa-solid fa-clock"></i> Дата мира</div>
+                    <div class="bc-date-display">
+                        <span id="bc-world-date">—</span>
+                        <button class="bc-icon-btn" id="bc-freeze-toggle" title="Заморозить время"><i class="fa-solid fa-snowflake"></i></button>
+                    </div>
+                    <div class="bc-date-controls">
+                        <button class="bc-btn-sm" id="bc-time-1d">+1д</button>
+                        <button class="bc-btn-sm" id="bc-time-7d">+7д</button>
+                        <button class="bc-btn-sm" id="bc-time-30d">+30д</button>
+                    </div>
+                </div>
+                <div class="bc-section">
+                    <div class="bc-section-head"><i class="fa-solid fa-users"></i> Персонажи</div>
+                    <div id="bc-dash-chars" class="bc-dash-chars">
+                        <div class="bc-empty">Нет персонажей. Откройте чат.</div>
+                    </div>
+                </div>
+                <div class="bc-section">
+                    <div class="bc-section-head"><i class="fa-solid fa-dice"></i> Последние броски</div>
+                    <div id="bc-dash-dice" class="bc-dash-dice bc-scroll">
+                        <div class="bc-empty">Нет бросков</div>
+                    </div>
+                </div>
+                <div class="bc-actions">
+                    <button class="bc-btn primary" id="bc-sync"><i class="fa-solid fa-rotate"></i> Синхронизация</button>
+                </div>
+            </div>
+
+            <!-- ====== ПЕРСОНАЖИ ====== -->
+            <div class="bc-tab-content" data-tab="chars">
+                <div class="bc-section">
+                    <div class="bc-section-head">
+                        <i class="fa-solid fa-users"></i> Список персонажей
+                        <button class="bc-icon-btn" id="bc-add-char" title="Добавить"><i class="fa-solid fa-plus"></i></button>
+                        <button class="bc-icon-btn" id="bc-reparse" title="AI-анализ"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+                    </div>
+                    <div id="bc-char-list" class="bc-char-list"></div>
+                </div>
+                <!-- Редактор персонажа -->
+                <div id="bc-char-editor" class="bc-editor" style="display:none;"></div>
+            </div>
+
+            <!-- ====== ЦИКЛ ====== -->
+            <div class="bc-tab-content" data-tab="cycle">
+                <div class="bc-row">
+                    <select class="bc-select" id="bc-cycle-char"></select>
+                </div>
+                <div id="bc-cycle-panel"></div>
+            </div>
+
+            <!-- ====== БЕРЕМЕННОСТЬ ====== -->
+            <div class="bc-tab-content" data-tab="preg">
+                <div class="bc-row">
+                    <select class="bc-select" id="bc-preg-char"></select>
+                </div>
+                <div id="bc-preg-panel"></div>
+                <!-- Роды -->
+                <div id="bc-labor-panel" style="display:none;"></div>
+                <!-- Интим / Кубик -->
+                <div class="bc-section" style="margin-top:12px;">
+                    <div class="bc-section-head"><i class="fa-solid fa-dice"></i> Интимность</div>
+                    <div class="bc-row bc-row-wrap">
+                        <select class="bc-select" id="bc-intim-target"></select>
+                        <select class="bc-select" id="bc-intim-partner"></select>
+                    </div>
+                    <div class="bc-row bc-row-wrap">
+                        <select class="bc-select" id="bc-intim-type">
+                            <option value="vaginal">Вагинальный</option>
+                            <option value="anal">Анальный</option>
+                            <option value="oral">Оральный</option>
+                        </select>
+                        <select class="bc-select" id="bc-intim-ejac">
+                            <option value="inside">Внутрь</option>
+                            <option value="outside">Снаружи</option>
+                            <option value="unknown">Неизв.</option>
+                        </select>
+                    </div>
+                    <div class="bc-btn-group">
+                        <button class="bc-btn primary" id="bc-intim-roll"><i class="fa-solid fa-dice"></i> Бросок</button>
+                        <button class="bc-btn" id="bc-intim-log"><i class="fa-solid fa-pen"></i> Лог</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ====== ЗДОРОВЬЕ ====== -->
+            <div class="bc-tab-content" data-tab="health">
+                <div class="bc-row">
+                    <select class="bc-select" id="bc-health-char"></select>
+                </div>
+                <!-- Показатели -->
+                <div id="bc-health-bars" class="bc-health-bars"></div>
+                <!-- Болезни -->
+                <div class="bc-section">
+                    <div class="bc-section-head">
+                        <i class="fa-solid fa-virus"></i> Болезни и состояния
+                        <button class="bc-icon-btn" id="bc-health-add-cond" title="Добавить"><i class="fa-solid fa-plus"></i></button>
+                        <button class="bc-icon-btn" id="bc-health-random-disease" title="Случайная болезнь"><i class="fa-solid fa-shuffle"></i></button>
+                    </div>
+                    <div id="bc-health-conditions" class="bc-scroll"></div>
+                </div>
+                <!-- Травмы -->
+                <div class="bc-section">
+                    <div class="bc-section-head">
+                        <i class="fa-solid fa-bandage"></i> Травмы и ранения
+                        <button class="bc-icon-btn" id="bc-health-add-injury" title="Добавить"><i class="fa-solid fa-plus"></i></button>
+                        <button class="bc-icon-btn" id="bc-health-random-injury" title="Случайная травма"><i class="fa-solid fa-dice"></i></button>
+                    </div>
+                    <div id="bc-health-injuries" class="bc-scroll"></div>
+                </div>
+                <!-- Лекарства -->
+                <div class="bc-section">
+                    <div class="bc-section-head">
+                        <i class="fa-solid fa-pills"></i> Лекарства
+                        <button class="bc-icon-btn" id="bc-health-add-med" title="Добавить"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                    <div id="bc-health-meds" class="bc-scroll"></div>
+                </div>
+                <!-- Ментальное здоровье -->
+                <div class="bc-section">
+                    <div class="bc-section-head"><i class="fa-solid fa-brain"></i> Ментальное здоровье</div>
+                    <div id="bc-health-mental"></div>
+                </div>
+                <!-- История -->
+                <div class="bc-section">
+                    <div class="bc-section-head"><i class="fa-solid fa-clock-rotate-left"></i> История болезней</div>
+                    <div id="bc-health-history" class="bc-scroll"></div>
+                </div>
+            </div>
+
+            <!-- ====== СЕМЬЯ ====== -->
+            <div class="bc-tab-content" data-tab="family">
+                <div class="bc-section">
+                    <div class="bc-section-head">
+                        <i class="fa-solid fa-heart"></i> Отношения
+                        <button class="bc-icon-btn" id="bc-rel-add" title="Добавить"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                    <div id="bc-rel-list" class="bc-scroll"></div>
+                </div>
+                <div class="bc-section">
+                    <div class="bc-section-head"><i class="fa-solid fa-baby-carriage"></i> Дети</div>
+                    <div class="bc-row">
+                        <select class="bc-select" id="bc-baby-parent"></select>
+                        <button class="bc-btn-sm" id="bc-baby-create"><i class="fa-solid fa-plus"></i> Создать</button>
+                    </div>
+                    <div id="bc-baby-list" class="bc-scroll"></div>
+                </div>
+                <div class="bc-section">
+                    <div class="bc-section-head"><i class="fa-solid fa-sitemap"></i> Семейное древо</div>
+                    <div id="bc-family-tree"></div>
+                </div>
+            </div>
+
+            <!-- ====== AU ====== -->
+            <div class="bc-tab-content" data-tab="au">
+                <div class="bc-section">
+                    <div class="bc-section-head"><i class="fa-solid fa-wand-magic-sparkles"></i> AU Пресет</div>
+                    <select class="bc-select" id="bc-au-preset">
+                        <option value="realism">🏥 Реализм</option>
+                        <option value="omegaverse">🐺 Омегаверс</option>
+                        <option value="fantasy">🧝 Фэнтези</option>
+                    </select>
+                </div>
+                <div id="bc-au-settings"></div>
+                <!-- Овипозиция -->
+                <div class="bc-section" id="bc-ovi-section" style="display:none;">
+                    <div class="bc-section-head"><i class="fa-solid fa-egg"></i> Овипозиция</div>
+                    <div class="bc-row">
+                        <select class="bc-select" id="bc-ovi-char"></select>
+                    </div>
+                    <div id="bc-ovi-panel"></div>
+                </div>
+                <!-- Кастомный AU текст -->
+                <div class="bc-section">
+                    <div class="bc-section-head"><i class="fa-solid fa-scroll"></i> Свой AU → в промпт</div>
+                    <label class="bc-label">Болезни, эпидемии</label>
+                    <textarea class="bc-textarea" id="bc-cau-dis" rows="2" placeholder="Какие болезни возможны, как проявляются..."></textarea>
+                    <label class="bc-label">Беременность в этом мире</label>
+                    <textarea class="bc-textarea" id="bc-cau-pre" rows="2" placeholder="Сроки, особенности, магия..."></textarea>
+                    <label class="bc-label">Лечение, медицина</label>
+                    <textarea class="bc-textarea" id="bc-cau-tre" rows="2" placeholder="Как лечат, что запрещено..."></textarea>
+                    <label class="bc-label">Прочие правила мира</label>
+                    <textarea class="bc-textarea" id="bc-cau-wor" rows="2" placeholder="Любые фиксы AU..."></textarea>
+                </div>
+            </div>
+
+            <!-- ====== НАСТРОЙКИ ====== -->
+            <div class="bc-tab-content" data-tab="settings">
+                <div class="bc-section">
+                    <div class="bc-section-head"><i class="fa-solid fa-puzzle-piece"></i> Модули</div>
+                    <label class="bc-checkbox"><input type="checkbox" id="bc-mod-cycle" checked> Цикл</label>
+                    <label class="bc-checkbox"><input type="checkbox" id="bc-mod-preg" checked> Беременность</label>
+                    <label class="bc-checkbox"><input type="checkbox" id="bc-mod-labor" checked> Роды</label>
+                    <label class="bc-checkbox"><input type="checkbox" id="bc-mod-baby" checked> Дети</label>
+                    <label class="bc-checkbox"><input type="checkbox" id="bc-mod-intim" checked> Интимность</label>
+                    <label class="bc-checkbox"><input type="checkbox" id="bc-mod-health" checked> Здоровье</label>
+                    <label class="bc-checkbox"><input type="checkbox" id="bc-mod-au"> AU оверлей</label>
+                </div>
+                <div class="bc-section">
+                    <div class="bc-section-head"><i class="fa-solid fa-robot"></i> Автоматизация</div>
+                    <label class="bc-checkbox"><input type="checkbox" id="bc-auto-sync" checked> Авто-синхр. персонажей</label>
+                    <label class="bc-checkbox"><input type="checkbox" id="bc-auto-parse" checked> Авто-парсинг карточек</label>
+                    <label class="bc-checkbox"><input type="checkbox" id="bc-auto-detect" checked> Авто-детект секса</label>
+                    <label class="bc-checkbox"><input type="checkbox" id="bc-auto-roll" checked> Авто-бросок</label>
+                    <label class="bc-checkbox"><input type="checkbox" id="bc-auto-time" checked> Авто-время</label>
+                    <label class="bc-checkbox"><input type="checkbox" id="bc-use-tags" checked> Парсинг &lt;bunnycycle&gt; тегов</label>
+                    <label class="bc-checkbox"><input type="checkbox" id="bc-widget" checked> Виджет в чате</label>
+                    <label class="bc-checkbox"><input type="checkbox" id="bc-widget-always"> Виджет всегда</label>
+                </div>
+                <div class="bc-section">
+                    <div class="bc-section-head"><i class="fa-solid fa-syringe"></i> Промпт</div>
+                    <label class="bc-checkbox"><input type="checkbox" id="bc-prompt-on" checked> Инъекция промпта</label>
+                    <div class="bc-row">
+                        <label>Позиция</label>
+                        <select class="bc-select" id="bc-prompt-pos">
+                            <option value="authornote">Author Note</option>
+                            <option value="system">System</option>
+                        </select>
+                    </div>
+                    <label class="bc-checkbox"><input type="checkbox" id="bc-prompt-rp" checked> Режиссура (сильнее влияние)</label>
+                    <div class="bc-row">
+                        <label>Чувств. детекта секса</label>
+                        <select class="bc-select" id="bc-detect-sens">
+                            <option value="1">1 — мягче</option>
+                            <option value="2" selected>2 — норма</option>
+                            <option value="3">3 — строже</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="bc-section">
+                    <div class="bc-section-head"><i class="fa-solid fa-heart-pulse"></i> Здоровье</div>
+                    <label class="bc-checkbox"><input type="checkbox" id="bc-health-auto" checked> Авто-генерация событий</label>
+                    <div class="bc-row">
+                        <label>Шанс осложнений</label>
+                        <input type="range" id="bc-health-comp-chance" min="0" max="50" value="15" class="bc-range">
+                        <span id="bc-health-comp-val">15%</span>
+                    </div>
+                    <div class="bc-row">
+                        <label>Шанс болезней</label>
+                        <input type="range" id="bc-health-disease-chance" min="0" max="30" value="8" class="bc-range">
+                        <span id="bc-health-disease-val">8%</span>
+                    </div>
+                    <div class="bc-row">
+                        <label>Скорость лечения</label>
+                        <select class="bc-select" id="bc-health-heal-rate">
+                            <option value="slow">Медленная</option>
+                            <option value="normal" selected>Нормальная</option>
+                            <option value="fast">Быстрая</option>
+                        </select>
+                    </div>
+                    <label class="bc-checkbox"><input type="checkbox" id="bc-health-trauma" checked> Травмы</label>
+                    <label class="bc-checkbox"><input type="checkbox" id="bc-health-mental" checked> Ментальное здоровье</label>
+                    <label class="bc-checkbox"><input type="checkbox" id="bc-health-immunity" checked> Иммунитет</label>
+                </div>
+                <div class="bc-section">
+                    <div class="bc-section-head"><i class="fa-solid fa-calendar"></i> Дата мира</div>
+                    <div class="bc-row bc-row-wrap">
+                        <input type="number" class="bc-input" id="bc-date-y" placeholder="Год" style="width:70px">
+                        <input type="number" class="bc-input" id="bc-date-m" placeholder="М" style="width:50px">
+                        <input type="number" class="bc-input" id="bc-date-d" placeholder="Д" style="width:50px">
+                        <input type="number" class="bc-input" id="bc-date-h" placeholder="Ч" style="width:50px">
+                        <button class="bc-btn-sm" id="bc-date-apply">✓</button>
+                    </div>
+                    <label class="bc-checkbox"><input type="checkbox" id="bc-date-freeze"> ❄ Заморозить время</label>
+                </div>
+                <div class="bc-section">
+                    <div class="bc-section-head"><i class="fa-solid fa-database"></i> Данные</div>
+                    <div class="bc-btn-group">
+                        <button class="bc-btn-sm" id="bc-export"><i class="fa-solid fa-download"></i> Экспорт</button>
+                        <button class="bc-btn-sm" id="bc-import"><i class="fa-solid fa-upload"></i> Импорт</button>
+                        <button class="bc-btn-sm bc-danger" id="bc-reset"><i class="fa-solid fa-trash"></i> Сброс</button>
+                    </div>
+                </div>
+                <div class="bc-section">
+                    <div class="bc-section-head"><i class="fa-solid fa-save"></i> Профили</div>
+                    <div class="bc-btn-group">
+                        <button class="bc-btn-sm" id="bc-prof-save"><i class="fa-solid fa-floppy-disk"></i> Сохранить</button>
+                        <button class="bc-btn-sm" id="bc-prof-reload"><i class="fa-solid fa-rotate"></i> Загрузить</button>
+                    </div>
+                    <div id="bc-prof-list" class="bc-scroll"></div>
+                </div>
+                <div class="bc-section">
+                    <div class="bc-section-head"><i class="fa-solid fa-bug"></i> Отладка</div>
+                    <label class="bc-checkbox"><input type="checkbox" id="bc-debug"> Лог событий</label>
+                    <pre id="bc-debug-log" class="bc-debug-pre"></pre>
+                    <button class="bc-btn-sm" id="bc-debug-clear">Очистить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
