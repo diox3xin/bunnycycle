@@ -2,8 +2,8 @@
  * BunnyCycle v3.0 — Центральное хранилище состояний
  */
 
-import { extension_settings } from '../../../../extensions.js';
-import { saveSettingsDebounced } from '../../../../../script.js';
+import { extension_settings } from '/scripts/extensions.js';
+import { saveSettingsDebounced } from '/script.js';
 import { deepMerge } from '../utils/helpers.js';
 
 const EXT = 'bunnycycle';

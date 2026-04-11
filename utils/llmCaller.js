@@ -2,7 +2,7 @@
  * BunnyCycle v3.0 — LLM Caller
  */
 
-import { getContext } from '../../../../extensions.js';
+import { getContext } from '/scripts/extensions.js';
 
 export const LLM = {
     async call(systemPrompt, userPrompt) {

@@ -3,7 +3,7 @@
  */
 
 import { getSettings, saveSettings, makeProfile, ensureProfileFields } from '../core/stateManager.js';
-import { DISEASE_DATABASE } from '../core/healthSystem.js';
+import { DISEASE_DATABASE, HealthSystem } from '../core/healthSystem.js';
 import { RelationshipManager } from '../core/relationshipManager.js';
 import { escapeHtml } from '../utils/helpers.js';
 
@@ -109,7 +109,6 @@ export function showAddDiseasePopup(charName, onDone) {
     popup.querySelector('#bc-pop-add-db')?.addEventListener('click', () => {
         const id = popup.querySelector('#bc-pop-disease')?.value;
         if (!id) return;
-        const { HealthSystem } = require('../core/healthSystem.js');
         const s = getSettings();
         const p = s.characters[charName];
         if (p) { new HealthSystem(p).addCondition(id); saveSettings(); }
@@ -122,7 +121,6 @@ export function showAddDiseasePopup(charName, onDone) {
         const sev = popup.querySelector('#bc-pop-custom-sev')?.value;
         const note = popup.querySelector('#bc-pop-custom-note')?.value?.trim();
         if (!label) return;
-        const { HealthSystem } = require('../core/healthSystem.js');
         const s = getSettings();
         const p = s.characters[charName];
         if (p) { new HealthSystem(p).addCustomCondition(label, sev, note); saveSettings(); }
@@ -170,7 +168,6 @@ export function showAddInjuryPopup(charName, onDone) {
         const sev = popup.querySelector('#bc-pop-inj-sev')?.value;
         const bleed = popup.querySelector('#bc-pop-inj-bleed')?.checked;
 
-        const { HealthSystem } = require('../core/healthSystem.js');
         const s = getSettings();
         const p = s.characters[charName];
         if (p) { new HealthSystem(p).addInjury(type, loc, sev, { bleeding: bleed }); saveSettings(); }
@@ -202,7 +199,6 @@ export function showAddMedPopup(charName, onDone) {
         const days = parseInt(popup.querySelector('#bc-pop-med-days')?.value) || 7;
         if (!name) return;
 
-        const { HealthSystem } = require('../core/healthSystem.js');
         const s = getSettings();
         const p = s.characters[charName];
         if (p) { new HealthSystem(p).addMedication(name, effect, days); saveSettings(); }

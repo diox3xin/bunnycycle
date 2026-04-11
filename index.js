@@ -3,15 +3,15 @@
  * Полная система: цикл, беременность, роды, здоровье, AU, дети, время
  */
 
-import { getContext, extension_settings } from '../../../extensions.js';
-import { saveSettingsDebounced, eventSource, event_types } from '../../../../script.js';
+import { renderExtensionTemplateAsync, getContext, extension_settings } from '/scripts/extensions.js';
+import { saveSettingsDebounced, eventSource, event_types } from '/script.js';
 
 import { initSettings, getSettings, saveSettings, ensureProfileFields } from './core/stateManager.js';
 import { syncCharacters, ProfileManager } from './core/profileManager.js';
 import { CycleEngine } from './core/cycleEngine.js';
 import { PregnancyEngine } from './core/pregnancyEngine.js';
 import { LaborEngine } from './core/laborEngine.js';
-import { HealthSystem } from './core/healthSystem.js';
+import { HealthSystem, DISEASE_DATABASE } from './core/healthSystem.js';
 import { BabyManager } from './core/babyManager.js';
 import { HeatRutEngine, BondEngine, OviEngine } from './core/auEngine.js';
 import { SexDetector, ConceptionDice, IntimacyLog } from './core/intimacyDetector.js';
@@ -373,8 +373,7 @@ function initDrawerEvents() {
     });
     $d.on('click', '#bc-reset', () => {
         showConfirm('Сбросить ВСЕ настройки BunnyCycle? Это необратимо!', () => {
-            const { resetSettings } = require('./core/stateManager.js');
-            resetSettings();
+            import('./core/stateManager.js').then(m => m.resetSettings());
             rebuild();
             loadSettingsToUI();
         });
@@ -557,7 +556,7 @@ function applyResponseTags(tags) {
         const p = s.characters[h.name];
         if (p) {
             // Пытаемся найти болезнь в базе
-            const allDiseases = Object.values(require('./core/healthSystem.js').DISEASE_DATABASE).flat();
+            const allDiseases = Object.values(DISEASE_DATABASE).flat();
             const match = allDiseases.find(d => d.label.toLowerCase().includes(h.condition.toLowerCase()));
             if (match) {
                 new HealthSystem(p).addCondition(match.id, { severity: h.severity, source: 'rp_detected' });

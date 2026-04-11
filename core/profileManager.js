@@ -2,7 +2,7 @@
  * BunnyCycle v3.0 — Менеджер профилей и синхронизация персонажей
  */
 
-import { getContext } from '../../../../extensions.js';
+import { getContext } from '/scripts/extensions.js';
 import { getSettings, saveSettings, makeProfile, ensureProfileFields } from './stateManager.js';
 import { LLM } from '../utils/llmCaller.js';
 
