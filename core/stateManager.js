@@ -48,6 +48,16 @@ export const DEFAULTS = {
     promptRPMode: true,
     sexDetectMinScore: 2,
 
+    // API для ИИ-анализа
+    aiApi: {
+        enabled: false,        // использовать кастомный API вместо SillyTavern
+        url: '',               // базовый URL (напр. https://api.openai.com/v1)
+        key: '',               // API ключ
+        model: 'gpt-4o-mini',  // модель
+        maxTokens: 800,
+        temperature: 0.05
+    },
+
     // Время мира
     worldDate: { year: 2025, month: 1, day: 1, hour: 12, minute: 0, frozen: false },
 

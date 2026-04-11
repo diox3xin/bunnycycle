@@ -698,6 +698,56 @@ function initDrawerEvents() {
 
     // Debug
     $d.on('change', '#bc-debug', function () { getSettings().debugTrace = this.checked; saveSettings(); });
+
+    // === AI API SETTINGS ===
+    $d.on('change', '#bc-ai-enabled', function () {
+        const s = getSettings();
+        if (!s.aiApi) s.aiApi = {};
+        s.aiApi.enabled = this.checked;
+        saveSettings();
+    });
+    $d.on('input', '#bc-ai-url', function () {
+        const s = getSettings();
+        if (!s.aiApi) s.aiApi = {};
+        s.aiApi.url = this.value;
+        saveSettings();
+    });
+    $d.on('input', '#bc-ai-key', function () {
+        const s = getSettings();
+        if (!s.aiApi) s.aiApi = {};
+        s.aiApi.key = this.value;
+        saveSettings();
+    });
+    $d.on('input', '#bc-ai-model', function () {
+        const s = getSettings();
+        if (!s.aiApi) s.aiApi = {};
+        s.aiApi.model = this.value;
+        saveSettings();
+    });
+    $d.on('input', '#bc-ai-tokens', function () {
+        const s = getSettings();
+        if (!s.aiApi) s.aiApi = {};
+        s.aiApi.maxTokens = parseInt(this.value) || 800;
+        saveSettings();
+    });
+    $d.on('click', '#bc-ai-test', async function () {
+        const btn = $(this);
+        const resultEl = $('#bc-ai-test-result');
+        btn.prop('disabled', true);
+        resultEl.html('⏳ Тестируем подключение...');
+        const s = getSettings();
+        try {
+            const result = await LLM.testConnection(s.aiApi || {});
+            if (result.success) {
+                resultEl.html(`<span style="color:#64dc8c">✅ ${result.message}</span>`);
+            } else {
+                resultEl.html(`<span style="color:#f08090">❌ ${result.message}</span>`);
+            }
+        } catch (e) {
+            resultEl.html(`<span style="color:#f08090">❌ Ошибка: ${e.message}</span>`);
+        }
+        btn.prop('disabled', false);
+    });
 }
 
 // ========================
@@ -741,6 +791,13 @@ function loadSettingsToUI() {
     $('#bc-health-immunity').prop('checked', s.healthSettings?.enableImmunity);
     $('#bc-date-freeze').prop('checked', s.worldDate?.frozen);
     $('#bc-debug').prop('checked', s.debugTrace);
+
+    // AI API
+    $('#bc-ai-enabled').prop('checked', s.aiApi?.enabled);
+    $('#bc-ai-url').val(s.aiApi?.url || '');
+    $('#bc-ai-key').val(s.aiApi?.key || '');
+    $('#bc-ai-model').val(s.aiApi?.model || 'gpt-4o-mini');
+    $('#bc-ai-tokens').val(s.aiApi?.maxTokens || 800);
 }
 
 // ========================

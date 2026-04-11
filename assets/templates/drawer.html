@@ -342,6 +342,38 @@
                     </div>
                     <div id="bc-prof-list" class="bc-scroll"></div>
                 </div>
+                <!-- API для ИИ-анализа -->
+                <div class="bc-section">
+                    <div class="bc-section-head"><i class="fa-solid fa-robot"></i> API для ИИ-анализа</div>
+                    <label class="bc-checkbox"><input type="checkbox" id="bc-ai-enabled"> Использовать отдельный API</label>
+                    <div id="bc-ai-settings" style="margin-top:6px">
+                        <div class="bc-row">
+                            <label>URL</label>
+                            <input class="bc-input" id="bc-ai-url" placeholder="https://api.openai.com/v1">
+                        </div>
+                        <div class="bc-row">
+                            <label>API ключ</label>
+                            <input class="bc-input" id="bc-ai-key" type="password" placeholder="sk-...">
+                        </div>
+                        <div class="bc-row">
+                            <label>Модель</label>
+                            <input class="bc-input" id="bc-ai-model" placeholder="gpt-4o-mini">
+                        </div>
+                        <div class="bc-row">
+                            <label>Max tokens</label>
+                            <input class="bc-input" id="bc-ai-tokens" type="number" value="800" min="100" max="4096">
+                        </div>
+                        <div class="bc-btn-group" style="margin-top:6px">
+                            <button class="bc-btn-sm" id="bc-ai-test"><i class="fa-solid fa-plug"></i> Тест подключения</button>
+                        </div>
+                        <div id="bc-ai-test-result" style="margin-top:4px; font-size:11px"></div>
+                    </div>
+                    <div class="bc-info-text" style="margin-top:6px">
+                        Поддерживается любой OpenAI-совместимый API (OpenAI, OpenRouter, Groq, местные прокси и т.д.).
+                        Если не включён — используется API подключённый в SillyTavern.
+                    </div>
+                </div>
+
                 <div class="bc-section">
                     <div class="bc-section-head"><i class="fa-solid fa-bug"></i> Отладка</div>
                     <label class="bc-checkbox"><input type="checkbox" id="bc-debug"> Лог событий</label>
