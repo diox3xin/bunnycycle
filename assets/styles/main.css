@@ -298,6 +298,99 @@
 .bc-date-controls { display: flex; gap: 4px; margin-top: 4px; }
 
 /* ============================================
+   ПЛАВАЮЩАЯ КНОПКА ЗАЙЧИКА (FAB)
+   ============================================ */
+#bc-fab {
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #c88cff 0%, #a855f7 100%);
+    color: #fff;
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 9990;
+    box-shadow: 0 4px 16px rgba(168, 85, 247, 0.4), 0 2px 4px rgba(0,0,0,0.2);
+    transition: transform 0.2s, box-shadow 0.2s;
+    user-select: none;
+    touch-action: none;
+}
+#bc-fab:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 24px rgba(168, 85, 247, 0.6), 0 3px 8px rgba(0,0,0,0.3);
+}
+#bc-fab:active {
+    transform: scale(0.95);
+}
+
+/* Панель быстрого обзора */
+#bc-fab-panel {
+    position: fixed;
+    z-index: 9991;
+    width: 280px;
+    max-height: 360px;
+    overflow-y: auto;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    animation: bc-fab-in 0.15s ease;
+}
+
+@keyframes bc-fab-in {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.bc-fab-content {
+    background: var(--SmartThemeBlurTintColor, #1a1a2e);
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255,255,255,0.1));
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.bc-fab-header {
+    padding: 10px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    background: rgba(200, 140, 255, 0.12);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.bc-fab-date {
+    font-size: 11px;
+    color: rgba(255,255,255,0.5);
+    font-weight: 400;
+}
+
+.bc-fab-char {
+    padding: 8px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.bc-fab-char:last-child { border-bottom: none; }
+
+.bc-fab-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--SmartThemeBodyColor, #e5e5e5);
+}
+
+.bc-fab-status {
+    font-size: 11px;
+    color: rgba(255,255,255,0.6);
+    line-height: 1.4;
+}
+
+/* ============================================
    ПОПАПЫ
    ============================================ */
 .bc-popup-overlay {

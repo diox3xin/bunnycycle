@@ -26,31 +26,29 @@ export const LLM = {
             }
         }
 
-        // === МЕТОД 2: SillyTavern context ===
+        // === МЕТОД 2: SillyTavern generateRaw (правильный способ) ===
         try {
-            if (typeof window.SillyTavern !== 'undefined') {
-                const ctx = window.SillyTavern.getContext();
-                if (ctx?.generateRaw) {
-                    const resp = await ctx.generateRaw(systemPrompt + '\n\n' + userPrompt, '', false, false, '[BunnyCycle]');
-                    if (resp) return resp;
-                }
-            }
-        } catch (e) {
-            console.warn('[BunnyCycle] SillyTavern context failed:', e.message);
-        }
-
-        // === МЕТОД 3: глобальный generateRaw ===
-        try {
-            if (typeof generateRaw === 'function') {
-                const resp = await generateRaw(systemPrompt + '\n\n' + userPrompt, '', false, false);
+            // Пробуем через SillyTavern.getContext
+            const stCtx = typeof window.SillyTavern !== 'undefined' ? window.SillyTavern?.getContext?.() : null;
+            const genFn = stCtx?.generateRaw || (typeof window.generateRaw === 'function' ? window.generateRaw : null);
+            
+            if (genFn) {
+                const combined = `${systemPrompt}\n\n${userPrompt}`;
+                const resp = await Promise.race([
+                    genFn(combined, '', false, false, '[BunnyCycle]'),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Таймаут 30с')), 30000))
+                ]);
                 if (resp) return resp;
             }
         } catch (e) {
-            console.warn('[BunnyCycle] generateRaw failed:', e.message);
+            console.warn('[BunnyCycle] SillyTavern generateRaw failed:', e.message);
         }
 
-        // === МЕТОД 4: fetch на ST backend ===
+        // === МЕТОД 3: fetch на ST backend (с таймаутом) ===
         try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000);
+            
             const fetchResp = await fetch('/api/backends/chat/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -62,14 +60,21 @@ export const LLM = {
                     max_tokens: 600,
                     temperature: 0.05,
                     stream: false
-                })
+                }),
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
+            
             if (fetchResp.ok) {
                 const data = await fetchResp.json();
                 return data?.choices?.[0]?.message?.content || data?.content || data?.response || '';
             }
         } catch (e) {
-            console.warn('[BunnyCycle] ST backend fetch failed:', e.message);
+            if (e.name === 'AbortError') {
+                console.warn('[BunnyCycle] ST backend: таймаут запроса');
+            } else {
+                console.warn('[BunnyCycle] ST backend fetch failed:', e.message);
+            }
         }
 
         return null;
