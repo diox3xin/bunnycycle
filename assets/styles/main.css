@@ -424,6 +424,20 @@
 .bc-popup-body { padding: 16px; }
 .bc-popup-close { font-size: 14px; }
 
+
+/* ============================================
+   TOAST УВЕДОМЛЕНИЯ
+   ============================================ */
+.bc-toast-stack { position: fixed; top: 18px; right: 18px; display: flex; flex-direction: column; gap: 10px; z-index: 11000; pointer-events: none; }
+.bc-toast { min-width: 280px; max-width: 380px; padding: 14px 16px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.08); background: rgba(18,16,30,0.94); backdrop-filter: blur(14px); box-shadow: 0 24px 60px rgba(0,0,0,0.35); animation: bc-toast-in 0.25s ease; color: var(--SmartThemeBodyColor, #eee); }
+.bc-toast strong { display: block; margin-bottom: 4px; font-size: 13px; }
+.bc-toast span { display: block; font-size: 12px; line-height: 1.45; color: rgba(255,255,255,0.72); }
+.bc-toast.ok { border-color: rgba(102,217,163,0.28); }
+.bc-toast.warn { border-color: rgba(255,198,109,0.28); }
+.bc-toast.bad { border-color: rgba(255,109,142,0.28); }
+.bc-toast-hide { opacity: 0; transform: translateY(-10px); transition: opacity 0.28s ease, transform 0.28s ease; }
+@keyframes bc-toast-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+
 /* ============================================
    ВИДЖЕТ В СООБЩЕНИЯХ (подробный)
    ============================================ */

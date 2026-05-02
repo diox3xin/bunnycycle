@@ -8,6 +8,17 @@ import { RelationshipManager } from '../core/relationshipManager.js';
 import { escapeHtml } from '../utils/helpers.js';
 
 let _popupEl = null;
+let _toastEl = null;
+
+function getToastContainer() {
+    if (_toastEl) return _toastEl;
+    _toastEl = document.createElement('div');
+    _toastEl.id = 'bc-toast-stack';
+    _toastEl.className = 'bc-toast-stack';
+    document.body.appendChild(_toastEl);
+    return _toastEl;
+}
+
 
 function getPopupContainer() {
     if (_popupEl) return _popupEl;
@@ -350,17 +361,18 @@ export function showCreateBabyPopup(parentName, onDone) {
 // ========================
 // УВЕДОМЛЕНИЕ (авто-закрытие)
 // ========================
-export function showNotice(text, duration = 3000) {
-    const html = `
-        <div class="bc-notice-content">
-            <p>${text}</p>
-        </div>
-    `;
-    const popup = showPopup(html, { title: '🐰 BunnyCycle' });
-    if (duration > 0) {
-        setTimeout(closePopup, duration);
-    }
-    return popup;
+export function showNotice(text, duration = 3000, type = "ok") {
+    const stack = getToastContainer();
+    const toast = document.createElement('div');
+    toast.className = `bc-toast ${type}`;
+    toast.innerHTML = `<strong>🐰 BunnyCycle</strong><span>${text}</span>`;
+    stack.prepend(toast);
+    const ttl = duration > 0 ? duration : 4200;
+    setTimeout(() => {
+        toast.classList.add('bc-toast-hide');
+        setTimeout(() => toast.remove(), 320);
+    }, ttl);
+    return toast;
 }
 
 // ========================
