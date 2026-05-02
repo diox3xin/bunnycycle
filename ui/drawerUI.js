@@ -453,12 +453,35 @@ export function renderCharEditor(charName) {
     if (!el) return;
     el.style.display = '';
 
-    const sexOptions = ['F', 'M'].map(v => `<option value="${v}" ${p.bioSex === v ? 'selected' : ''}>${v === 'F' ? '♀ Женский' : '♂ Мужской'}</option>`).join('');
-    const sec = ['', 'alpha', 'beta', 'omega'].map(v => `<option value="${v}" ${(p.secondarySex || '') === v ? 'selected' : ''}>${v ? v[0].toUpperCase() + v.slice(1) : '—'}</option>`).join('');
-    const races = ['human','elf','dwarf','orc','demon','vampire','werewolf','fairy','dragon','halfling','other'].map(v => `<option value="${v}" ${p.race === v ? 'selected' : ''}>${v}</option>`).join('');
-    const contras = ['none','condom','pill','iud','implant','injection','natural','magic'].map(v => `<option value="${v}" ${p.contraception === v ? 'selected' : ''}>${v}</option>`).join('');
+    const sexOptions = [
+        { v: 'F', l: '♀ Женский' }, { v: 'M', l: '♂ Мужской' }, { v: null, l: '? Не определён' }
+    ].map(o => `<option value="${o.v || ''}" ${(p.bioSex || '') === (o.v || '') ? 'selected' : ''}>${o.l}</option>`).join('');
+    const sec = [
+        { v: '', l: '— Нет —' }, { v: 'alpha', l: '🐺 Альфа' }, { v: 'beta', l: '🔵 Бета' }, { v: 'omega', l: '🌸 Омега' }
+    ].map(o => `<option value="${o.v}" ${(p.secondarySex || '') === o.v ? 'selected' : ''}>${o.l}</option>`).join('');
+    const raceMap = {
+        human: '👤 Человек', elf: '🧝 Эльф', dwarf: '⛏️ Гном/Дварф', orc: '💪 Орк',
+        demon: '😈 Демон', vampire: '🧛 Вампир', werewolf: '🐺 Оборотень', fairy: '🧚 Фея',
+        dragon: '🐉 Дракон', halfling: '🍃 Полурослик', neko: '🐱 Неко/Кицунэ',
+        angel: '😇 Ангел', tiefling: '🔥 Тифлинг', mermaid: '🧜 Русалка',
+        beastkin: '🐾 Зверолюд', other: '✏️ Другая...'
+    };
+    const currentRace = p.race || 'human';
+    const isCustomRace = !raceMap[currentRace] && currentRace !== 'human';
+    const races = Object.entries(raceMap).map(([v, l]) => 
+        `<option value="${v}" ${currentRace === v || (isCustomRace && v === 'other') ? 'selected' : ''}>${l}</option>`
+    ).join('');
+    const contraMap = {
+        none: '❌ Нет', condom: '🎈 Презерватив', pill: '💊 Таблетки', iud: '🔩 Спираль (ВМС)',
+        implant: '💉 Имплант', injection: '💉 Инъекция', natural: '📅 Календарный', magic: '✨ Магия'
+    };
+    const contras = Object.entries(contraMap).map(([v, l]) => 
+        `<option value="${v}" ${p.contraception === v ? 'selected' : ''}>${l}</option>`
+    ).join('');
     const diffs = ['easy','normal','hard','impossible'].map(v => `<option value="${v}" ${p.pregnancyDifficulty === v ? 'selected' : ''}>${v === 'easy' ? 'Лёгкая' : v === 'normal' ? 'Нормальная' : v === 'hard' ? 'Тяжёлая' : 'Невозможна'}</option>`).join('');
     const symInt = ['mild','moderate','strong'].map(v => `<option value="${v}" ${p.cycle?.symptomIntensity === v ? 'selected' : ''}>${v === 'mild' ? 'Слабые' : v === 'moderate' ? 'Умеренные' : 'Сильные'}</option>`).join('');
+    const canPreg = p._canGetPregnant !== undefined ? p._canGetPregnant : (p.bioSex === 'F' || (p.secondarySex === 'omega'));
+    const pregWeeks = p.pregnancy?.maxWeeks || 40;
 
     el.innerHTML = `
         <div class="bc-section-head"><i class="fa-solid fa-pen"></i> Редактор: ${escapeHtml(charName)}
