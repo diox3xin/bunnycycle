@@ -66,6 +66,44 @@ export async function syncCharacters() {
             autoSaveProfile();
         }
 
+        // Детекция NPC из контекста чата
+        try {
+            const chat = ctx.chat || [];
+            const lastMessages = chat.slice(-20);
+            const knownNames = new Set(Object.keys(s.characters));
+            
+            for (const msg of lastMessages) {
+                if (!msg?.mes) continue;
+                // Извлекаем имена из формата "Имя:" в начале строк бота
+                if (msg.is_user === false && msg.name && !SYSTEM_NAMES.has(msg.name) && !knownNames.has(msg.name)) {
+                    // Бот может писать от имени NPC
+                }
+                
+                // Ищем NPC имена в тексте (формат **Имя** говорит:, или "Имя:" в начале строки)
+                const npcPatterns = [
+                    /\*\*([А-ЯЁA-Z][а-яёa-z]{2,}(?:\s[А-ЯЁA-Z][а-яёa-z]+)?)\*\*\s*(?:—|:|говорит|сказал|прошептал|крикнул)/g,
+                    /^([А-ЯЁA-Z][а-яёa-z]{2,}(?:\s[А-ЯЁA-Z][а-яёa-z]+)?)\s*:\s/gm,
+                ];
+                
+                for (const pattern of npcPatterns) {
+                    let match;
+                    while ((match = pattern.exec(msg.mes)) !== null) {
+                        const npcName = match[1].trim();
+                        if (npcName.length >= 2 && npcName.length <= 30 && 
+                            !SYSTEM_NAMES.has(npcName) && !knownNames.has(npcName)) {
+                            // Создаём NPC
+                            s.characters[npcName] = makeProfile(npcName, false, null);
+                            s.characters[npcName]._isNPC = true;
+                            knownNames.add(npcName);
+                            console.log(`[BunnyCycle] NPC обнаружен из чата: ${npcName}`);
+                        }
+                    }
+                }
+            }
+        } catch (npcErr) {
+            console.warn('[BunnyCycle] NPC detection error:', npcErr);
+        }
+
         saveSettings();
     } catch (err) {
         console.warn('[BunnyCycle] Sync error:', err);

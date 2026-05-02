@@ -512,6 +512,26 @@ export function renderCharEditor(charName) {
         <div class="bc-row"><label>Интенсивность симптомов</label><select class="bc-select bc-ed-cyc" data-field="symptomIntensity">${symInt}</select></div>
         <div class="bc-row"><label>Текущий день</label><input class="bc-input bc-ed-cyc" data-field="currentDay" type="number" value="${p.cycle?.currentDay || 1}" min="1" max="45"></div>
 
+        ${s.modules.auOverlay && s.auPreset === 'omegaverse' && (p.secondarySex === 'omega' || p.secondarySex === 'alpha') ? `
+        <div class="bc-section-head" style="margin-top:8px"><i class="fa-solid fa-fire"></i> ${p.secondarySex === 'omega' ? '🔥 Течка' : '🔥 Гон'}</div>
+        <div class="bc-stat-row"><span class="bc-stat-label">Статус</span><span class="bc-stat-value">${p.heat?.active ? '🔥 Активна' : p.rut?.active ? '🔥 Активен' : '💤 Неактивно'}</span></div>
+        <div class="bc-row"><label>Текущий день цикла</label><input class="bc-input bc-ed-heat" data-field="currentDay" type="number" value="${(p.secondarySex === 'omega' ? p.heat?.currentDay : p.rut?.currentDay) || 0}" min="0" max="90"></div>
+        <div class="bc-row"><label>Дней с последнего</label><input class="bc-input bc-ed-heat" data-field="daysSinceLast" type="number" value="${(p.secondarySex === 'omega' ? p.heat?.daysSinceLast : p.rut?.daysSinceLast) || 0}" min="0" max="999"></div>
+        <div class="bc-row"><label>Интенсивность</label><select class="bc-select bc-ed-heat" data-field="intensity">
+            <option value="mild" ${(p.secondarySex === 'omega' ? p.heat?.intensity : p.rut?.intensity) === 'mild' ? 'selected' : ''}>Слабая</option>
+            <option value="moderate" ${(p.secondarySex === 'omega' ? p.heat?.intensity : p.rut?.intensity) === 'moderate' ? 'selected' : ''}>Умеренная</option>
+            <option value="strong" ${(p.secondarySex === 'omega' ? p.heat?.intensity : p.rut?.intensity) === 'strong' ? 'selected' : ''}>Сильная</option>
+            <option value="overwhelming" ${(p.secondarySex === 'omega' ? p.heat?.intensity : p.rut?.intensity) === 'overwhelming' ? 'selected' : ''}>Невыносимая</option>
+        </select></div>
+        ${p.secondarySex === 'omega' ? `
+        <label class="bc-checkbox"><input type="checkbox" class="bc-ed-heat" data-field="onSuppressants" ${p.heat?.onSuppressants ? 'checked' : ''}> 💊 На супрессантах</label>
+        ` : ''}
+        <div class="bc-btn-group" style="margin-top:4px">
+            <button class="bc-btn-sm bc-trigger-heat">${p.secondarySex === 'omega' ? '🔥 Вызвать течку' : '🔥 Вызвать гон'}</button>
+            <button class="bc-btn-sm bc-reset-heat">🔄 Сбросить</button>
+        </div>
+        ` : ''}
+
         <div class="bc-btn-group" style="margin-top:8px">
             <button class="bc-btn primary bc-save-editor">💾 Сохранить</button>
             <button class="bc-btn bc-close-editor">Закрыть</button>

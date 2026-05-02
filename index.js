@@ -419,6 +419,35 @@ function initDrawerEvents() {
         if (row) row.style.display = this.value === 'other' ? '' : 'none';
     });
 
+    // === ТЕЧКА/ГОН КНОПКИ В РЕДАКТОРЕ ===
+    $d.on('click', '.bc-trigger-heat', () => {
+        const s = getSettings();
+        const name = $('#bc-edit-name').val();
+        const p = s.characters[name];
+        if (!p) return;
+        if (p.secondarySex === 'omega') {
+            if (!p.heat) p.heat = { active: false, currentDay: 0, cycleDays: 30, duration: 5, intensity: 'moderate', daysSinceLast: 0, onSuppressants: false };
+            p.heat.active = true;
+            p.heat.currentDay = 1;
+        } else if (p.secondarySex === 'alpha') {
+            if (!p.rut) p.rut = { active: false, currentDay: 0, cycleDays: 35, duration: 4, intensity: 'moderate', daysSinceLast: 0 };
+            p.rut.active = true;
+            p.rut.currentDay = 1;
+        }
+        saveSettings();
+        renderCharEditor(name);
+    });
+    $d.on('click', '.bc-reset-heat', () => {
+        const s = getSettings();
+        const name = $('#bc-edit-name').val();
+        const p = s.characters[name];
+        if (!p) return;
+        if (p.heat) { p.heat.active = false; p.heat.currentDay = 0; }
+        if (p.rut) { p.rut.active = false; p.rut.currentDay = 0; }
+        saveSettings();
+        renderCharEditor(name);
+    });
+
     $d.on('click', '.bc-save-editor', () => {
         const s = getSettings();
         const name = $('#bc-edit-name').val();
