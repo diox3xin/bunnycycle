@@ -837,28 +837,80 @@ export function renderOviposition() {
 }
 
 // ========================
-// РЕНДЕР СЕМЕЙНОГО ДРЕВА
+// РЕНДЕР СЕМЕЙНОГО ДРЕВА (КРАСИВОЕ)
 // ========================
 export function renderFamilyTree() {
     const el = document.getElementById('bc-family-tree');
     if (!el) return;
 
-    const tree = RelationshipManager.buildFamilyTree();
-    const names = Object.keys(tree);
+    const s = getSettings();
+    const chars = s.characters || {};
+    const rels = s.relationships || [];
+    const names = Object.keys(chars);
+
     if (!names.length) {
-        el.innerHTML = '<div class="bc-empty">Нет данных</div>';
+        el.innerHTML = '<div class="bc-empty">Нет данных для дерева</div>';
         return;
     }
 
-    let html = '';
+    // Собираем все связи
+    let html = '<div class="bc-ftree">';
+
     for (const name of names) {
-        const node = tree[name];
-        let parts = [`<strong>${escapeHtml(name)}</strong> ${node.sex === 'M' ? '♂' : '♀'}`];
-        if (node.partners.length) parts.push(`❤️ ${node.partners.map(escapeHtml).join(', ')}`);
-        if (node.children.length) parts.push(`👶 ${node.children.map(escapeHtml).join(', ')}`);
-        if (node.parents.length) parts.push(`👤 родители: ${node.parents.map(escapeHtml).join(', ')}`);
-        html += `<div class="bc-tree-node">${parts.join(' | ')}</div>`;
+        const p = chars[name];
+        if (!p?._enabled) continue;
+        const sexIcon = p.bioSex === 'M' ? '👨' : p.bioSex === 'F' ? '👩' : '🧑';
+        const secLabel = p.secondarySex ? ` (${p.secondarySex})` : '';
+
+        // Находим партнёров
+        const partners = rels.filter(r => 
+            (r.char1 === name || r.char2 === name) && 
+            /партн|пара|муж|жена|lover|spouse|partner|married/i.test(r.type)
+        ).map(r => r.char1 === name ? r.char2 : r.char1);
+
+        // Находим детей
+        const children = (p.babies || []).map(b => ({
+            name: b.name || '?', sex: b.sex, father: b.father
+        }));
+
+        // Находим все отношения
+        const charRels = rels.filter(r => r.char1 === name || r.char2 === name);
+
+        html += `<div class="bc-ftree-card">`;
+        html += `<div class="bc-ftree-avatar">${sexIcon}</div>`;
+        html += `<div class="bc-ftree-info">`;
+        html += `<div class="bc-ftree-name">${escapeHtml(name)}${secLabel}</div>`;
+        html += `<div class="bc-ftree-race">${p.race || 'человек'}${p.age ? ', ' + p.age + ' лет' : ''}</div>`;
+        
+        // Партнёры
+        if (partners.length) {
+            html += `<div class="bc-ftree-rel">💕 ${partners.map(pn => `<span class="bc-ftree-link">${escapeHtml(pn)}</span>`).join(', ')}</div>`;
+        }
+
+        // Другие отношения
+        const otherRels = charRels.filter(r => !partners.includes(r.char1 === name ? r.char2 : r.char1));
+        if (otherRels.length) {
+            for (const r of otherRels) {
+                const other = r.char1 === name ? r.char2 : r.char1;
+                html += `<div class="bc-ftree-rel"><span class="bc-ftree-reltype">${escapeHtml(r.type)}</span> → <span class="bc-ftree-link">${escapeHtml(other)}</span></div>`;
+            }
+        }
+
+        // Дети
+        if (children.length) {
+            html += `<div class="bc-ftree-children">`;
+            html += `<div class="bc-ftree-children-label">👶 Дети:</div>`;
+            for (const c of children) {
+                const cIcon = c.sex === 'M' ? '👦' : '👧';
+                html += `<div class="bc-ftree-child">${cIcon} ${escapeHtml(c.name)} <span class="bc-ftree-dim">(от ${escapeHtml(c.father || '?')})</span></div>`;
+            }
+            html += `</div>`;
+        }
+
+        html += `</div></div>`;
     }
+
+    html += '</div>';
     el.innerHTML = html;
 }
 

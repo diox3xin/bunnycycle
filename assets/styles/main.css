@@ -331,6 +331,58 @@
 .bc-date-display { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; }
 .bc-date-controls { display: flex; gap: 4px; margin-top: 4px; }
 
+/* === СЕМЕЙНОЕ ДЕРЕВО === */
+.bc-ftree { display: flex; flex-direction: column; gap: 8px; }
+.bc-ftree-card {
+    display: flex; gap: 12px; padding: 12px; border-radius: 10px;
+    background: rgba(200,140,255,0.04); border: 1px solid rgba(200,140,255,0.12);
+    transition: border-color 0.2s;
+}
+.bc-ftree-card:hover { border-color: rgba(200,140,255,0.3); }
+.bc-ftree-avatar { font-size: 32px; flex-shrink: 0; }
+.bc-ftree-info { flex: 1; min-width: 0; }
+.bc-ftree-name { font-size: 14px; font-weight: 700; color: #e0c0ff; }
+.bc-ftree-race { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 2px; }
+.bc-ftree-rel { font-size: 12px; margin-top: 4px; color: rgba(255,255,255,0.7); }
+.bc-ftree-reltype { 
+    font-size: 10px; padding: 1px 6px; border-radius: 8px;
+    background: rgba(200,140,255,0.15); color: #d0a0ff; font-weight: 500;
+}
+.bc-ftree-link { color: #c88cff; font-weight: 600; }
+.bc-ftree-children { margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(255,255,255,0.08); }
+.bc-ftree-children-label { font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 3px; }
+.bc-ftree-child { font-size: 12px; padding: 2px 0; color: rgba(255,255,255,0.75); }
+.bc-ftree-dim { font-size: 10px; color: rgba(255,255,255,0.35); }
+
+/* === ОТНОШЕНИЯ === */
+.bc-rel-row {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    padding: 6px 8px; border-radius: 6px;
+    background: rgba(255,255,255,0.03); margin-bottom: 4px;
+    font-size: 12px;
+}
+.bc-rel-pair { font-weight: 600; color: #e0c0ff; }
+.bc-rel-type { 
+    font-size: 10px; padding: 1px 6px; border-radius: 8px;
+    background: rgba(200,140,255,0.15); color: #d0a0ff;
+}
+.bc-rel-note { font-size: 10px; color: rgba(255,255,255,0.35); font-style: italic; }
+.bc-rel-str { font-size: 10px; color: rgba(255,255,255,0.4); margin-left: auto; }
+
+/* === ДЕТИ === */
+.bc-baby-row {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    padding: 6px 8px; border-radius: 6px;
+    background: rgba(255,255,255,0.03); margin-bottom: 4px;
+    font-size: 12px;
+}
+.bc-baby-icon { font-size: 16px; }
+.bc-baby-name { font-weight: 600; }
+.bc-baby-age { font-size: 10px; color: rgba(255,255,255,0.5); }
+.bc-baby-parents { font-size: 10px; color: rgba(255,255,255,0.35); }
+.bc-baby-weight { font-size: 10px; color: rgba(255,255,255,0.4); }
+.bc-baby-next { font-size: 10px; color: #c88cff; }
+
 
 /* ============================================
    ПОПАПЫ
