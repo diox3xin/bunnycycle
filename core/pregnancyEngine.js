@@ -1,38 +1,38 @@
-/**
- * BunnyCycle v3.0 — Движок беременности
+﻿/**
+ * BunnyCycle v3.0 вЂ” Р”РІРёР¶РѕРє Р±РµСЂРµРјРµРЅРЅРѕСЃС‚Рё
  */
 
 import { getSettings } from './stateManager.js';
 import { randomFrom } from '../utils/helpers.js';
 
 export const PREG_COMPLICATIONS = [
-    'Преэклампсия', 'Гестационный диабет', 'Предлежание плаценты',
-    'Многоводие', 'Маловодие', 'Тонус матки', 'Анемия',
-    'Тяжёлый токсикоз', 'Угроза преждевременных родов', 'ЗВУР',
-    'Резус-конфликт', 'Истмико-цервикальная недостаточность',
-    'Отёки', 'Гипертонус', 'Низкая плацентация'
+    'РџСЂРµСЌРєР»Р°РјРїСЃРёСЏ', 'Р“РµСЃС‚Р°С†РёРѕРЅРЅС‹Р№ РґРёР°Р±РµС‚', 'РџСЂРµРґР»РµР¶Р°РЅРёРµ РїР»Р°С†РµРЅС‚С‹',
+    'РњРЅРѕРіРѕРІРѕРґРёРµ', 'РњР°Р»РѕРІРѕРґРёРµ', 'РўРѕРЅСѓСЃ РјР°С‚РєРё', 'РђРЅРµРјРёСЏ',
+    'РўСЏР¶С‘Р»С‹Р№ С‚РѕРєСЃРёРєРѕР·', 'РЈРіСЂРѕР·Р° РїСЂРµР¶РґРµРІСЂРµРјРµРЅРЅС‹С… СЂРѕРґРѕРІ', 'Р—Р’РЈР ',
+    'Р РµР·СѓСЃ-РєРѕРЅС„Р»РёРєС‚', 'РСЃС‚РјРёРєРѕ-С†РµСЂРІРёРєР°Р»СЊРЅР°СЏ РЅРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕСЃС‚СЊ',
+    'РћС‚С‘РєРё', 'Р“РёРїРµСЂС‚РѕРЅСѓСЃ', 'РќРёР·РєР°СЏ РїР»Р°С†РµРЅС‚Р°С†РёСЏ'
 ];
 
 const SIZE_MAP = [
-    [4, 'маковое зерно', '🌰'], [8, 'малина', '🫐'], [12, 'лайм', '🍋'],
-    [16, 'авокадо', '🥑'], [20, 'банан', '🍌'], [24, 'кукуруза', '🌽'],
-    [28, 'баклажан', '🍆'], [32, 'ананас', '🍍'], [36, 'дыня', '🍈'],
-    [40, 'арбуз', '🍉']
+    [4, 'РјР°РєРѕРІРѕРµ Р·РµСЂРЅРѕ', 'рџЊ°'], [8, 'РјР°Р»РёРЅР°', 'рџ«ђ'], [12, 'Р»Р°Р№Рј', 'рџЌ‹'],
+    [16, 'Р°РІРѕРєР°РґРѕ', 'рџҐ‘'], [20, 'Р±Р°РЅР°РЅ', 'рџЌЊ'], [24, 'РєСѓРєСѓСЂСѓР·Р°', 'рџЊЅ'],
+    [28, 'Р±Р°РєР»Р°Р¶Р°РЅ', 'рџЌ†'], [32, 'Р°РЅР°РЅР°СЃ', 'рџЌЌ'], [36, 'РґС‹РЅСЏ', 'рџЌ€'],
+    [40, 'Р°СЂР±СѓР·', 'рџЌ‰']
 ];
 
 const SYMPTOM_MAP = [
-    { from: 4, to: 14, symptoms: ['тошнота', 'усталость', 'чувствительность к запахам'] },
-    { from: 6, to: 12, symptoms: ['утренняя рвота'] },
-    { from: 10, to: 40, symptoms: ['частое мочеиспускание'] },
-    { from: 14, to: 40, symptoms: ['рост живота'] },
-    { from: 16, to: 22, symptoms: ['первые шевеления (бабочки)'] },
-    { from: 18, to: 40, symptoms: ['шевеления плода'] },
-    { from: 20, to: 40, symptoms: ['боль в пояснице'] },
-    { from: 24, to: 40, symptoms: ['изжога'] },
-    { from: 28, to: 40, symptoms: ['одышка', 'отёки ног'] },
-    { from: 32, to: 40, symptoms: ['тренировочные схватки'] },
-    { from: 36, to: 40, symptoms: ['давление на таз', 'усиление выделений'] },
-    { from: 38, to: 40, symptoms: ['опущение живота', 'предвестники родов'] },
+    { from: 4, to: 14, symptoms: ['С‚РѕС€РЅРѕС‚Р°', 'СѓСЃС‚Р°Р»РѕСЃС‚СЊ', 'С‡СѓРІСЃС‚РІРёС‚РµР»СЊРЅРѕСЃС‚СЊ Рє Р·Р°РїР°С…Р°Рј'] },
+    { from: 6, to: 12, symptoms: ['СѓС‚СЂРµРЅРЅСЏСЏ СЂРІРѕС‚Р°'] },
+    { from: 10, to: 40, symptoms: ['С‡Р°СЃС‚РѕРµ РјРѕС‡РµРёСЃРїСѓСЃРєР°РЅРёРµ'] },
+    { from: 14, to: 40, symptoms: ['СЂРѕСЃС‚ Р¶РёРІРѕС‚Р°'] },
+    { from: 16, to: 22, symptoms: ['РїРµСЂРІС‹Рµ С€РµРІРµР»РµРЅРёСЏ (Р±Р°Р±РѕС‡РєРё)'] },
+    { from: 18, to: 40, symptoms: ['С€РµРІРµР»РµРЅРёСЏ РїР»РѕРґР°'] },
+    { from: 20, to: 40, symptoms: ['Р±РѕР»СЊ РІ РїРѕСЏСЃРЅРёС†Рµ'] },
+    { from: 24, to: 40, symptoms: ['РёР·Р¶РѕРіР°'] },
+    { from: 28, to: 40, symptoms: ['РѕРґС‹С€РєР°', 'РѕС‚С‘РєРё РЅРѕРі'] },
+    { from: 32, to: 40, symptoms: ['С‚СЂРµРЅРёСЂРѕРІРѕС‡РЅС‹Рµ СЃС…РІР°С‚РєРё'] },
+    { from: 36, to: 40, symptoms: ['РґР°РІР»РµРЅРёРµ РЅР° С‚Р°Р·', 'СѓСЃРёР»РµРЅРёРµ РІС‹РґРµР»РµРЅРёР№'] },
+    { from: 38, to: 40, symptoms: ['РѕРїСѓС‰РµРЅРёРµ Р¶РёРІРѕС‚Р°', 'РїСЂРµРґРІРµСЃС‚РЅРёРєРё СЂРѕРґРѕРІ'] },
 ];
 
 export class PregnancyEngine {
@@ -50,7 +50,7 @@ export class PregnancyEngine {
     }
 
     get trimesterLabel() {
-        return ['', 'Первый триместр', 'Второй триместр', 'Третий триместр'][this.trimester];
+        return ['', 'РџРµСЂРІС‹Р№ С‚СЂРёРјРµСЃС‚СЂ', 'Р’С‚РѕСЂРѕР№ С‚СЂРёРјРµСЃС‚СЂ', 'РўСЂРµС‚РёР№ С‚СЂРёРјРµСЃС‚СЂ'][this.trimester];
     }
 
     get progress() {
@@ -58,7 +58,7 @@ export class PregnancyEngine {
     }
 
     get size() {
-        let result = { name: 'эмбрион', emoji: '🫧' };
+        let result = { name: 'СЌРјР±СЂРёРѕРЅ', emoji: 'рџ«§' };
         for (const [week, name, emoji] of SIZE_MAP) {
             if (this.pr.week >= week) result = { name, emoji };
         }
@@ -73,36 +73,36 @@ export class PregnancyEngine {
                 result.push(...entry.symptoms);
             }
         }
-        // Влияние здоровья
+        // Р’Р»РёСЏРЅРёРµ Р·РґРѕСЂРѕРІСЊСЏ
         if (this.p.health) {
-            if (this.p.health.stress > 50) result.push('тревожность');
-            if (this.p.health.immunity < 40) result.push('частые простуды');
-            if (this.p.health.energy < 30) result.push('сильная слабость');
+            if (this.p.health.stress > 50) result.push('С‚СЂРµРІРѕР¶РЅРѕСЃС‚СЊ');
+            if (this.p.health.immunity < 40) result.push('С‡Р°СЃС‚С‹Рµ РїСЂРѕСЃС‚СѓРґС‹');
+            if (this.p.health.energy < 30) result.push('СЃРёР»СЊРЅР°СЏ СЃР»Р°Р±РѕСЃС‚СЊ');
         }
-        // Осложнения добавляют симптомы
-        if (this.pr.complications.includes('Тяжёлый токсикоз')) result.push('неукротимая рвота');
-        if (this.pr.complications.includes('Преэклампсия')) result.push('головная боль', 'мушки перед глазами');
-        if (this.pr.complications.includes('Анемия')) result.push('бледность', 'головокружение');
+        // РћСЃР»РѕР¶РЅРµРЅРёСЏ РґРѕР±Р°РІР»СЏСЋС‚ СЃРёРјРїС‚РѕРјС‹
+        if (this.pr.complications.includes('РўСЏР¶С‘Р»С‹Р№ С‚РѕРєСЃРёРєРѕР·')) result.push('РЅРµСѓРєСЂРѕС‚РёРјР°СЏ СЂРІРѕС‚Р°');
+        if (this.pr.complications.includes('РџСЂРµСЌРєР»Р°РјРїСЃРёСЏ')) result.push('РіРѕР»РѕРІРЅР°СЏ Р±РѕР»СЊ', 'РјСѓС€РєРё РїРµСЂРµРґ РіР»Р°Р·Р°РјРё');
+        if (this.pr.complications.includes('РђРЅРµРјРёСЏ')) result.push('Р±Р»РµРґРЅРѕСЃС‚СЊ', 'РіРѕР»РѕРІРѕРєСЂСѓР¶РµРЅРёРµ');
         return [...new Set(result)];
     }
 
     get movements() {
         const w = this.pr.week;
-        if (w < 16) return { label: 'нет', emoji: '—', intensity: 0 };
-        if (w < 22) return { label: 'бабочки', emoji: '🦋', intensity: 1 };
-        if (w < 28) return { label: 'толчки', emoji: '👋', intensity: 2 };
-        if (w < 36) return { label: 'активные', emoji: '🤸', intensity: 3 };
-        return { label: 'сильные, реже', emoji: '💪', intensity: 2 };
+        if (w < 16) return { label: 'РЅРµС‚', emoji: 'вЂ”', intensity: 0 };
+        if (w < 22) return { label: 'Р±Р°Р±РѕС‡РєРё', emoji: 'рџ¦‹', intensity: 1 };
+        if (w < 28) return { label: 'С‚РѕР»С‡РєРё', emoji: 'рџ‘‹', intensity: 2 };
+        if (w < 36) return { label: 'Р°РєС‚РёРІРЅС‹Рµ', emoji: 'рџ¤ё', intensity: 3 };
+        return { label: 'СЃРёР»СЊРЅС‹Рµ, СЂРµР¶Рµ', emoji: 'рџ’Є', intensity: 2 };
     }
 
     get bellySize() {
         const w = this.pr.week;
-        if (w < 12) return 'незаметен';
-        if (w < 16) return 'чуть округлился';
-        if (w < 20) return 'заметен в облегающем';
-        if (w < 28) return 'явно виден';
-        if (w < 36) return 'большой';
-        return 'огромный';
+        if (w < 12) return 'РЅРµР·Р°РјРµС‚РµРЅ';
+        if (w < 16) return 'С‡СѓС‚СЊ РѕРєСЂСѓРіР»РёР»СЃСЏ';
+        if (w < 20) return 'Р·Р°РјРµС‚РµРЅ РІ РѕР±Р»РµРіР°СЋС‰РµРј';
+        if (w < 28) return 'СЏРІРЅРѕ РІРёРґРµРЅ';
+        if (w < 36) return 'Р±РѕР»СЊС€РѕР№';
+        return 'РѕРіСЂРѕРјРЅС‹Р№';
     }
 
     get weightGainEstimate() {
@@ -143,9 +143,9 @@ export class PregnancyEngine {
         this.pr.complications = [];
         this.pr.weightGain = 0;
 
-        // Определяем срок
-        let maxWeeks = 40;
-        if (s.modules.auOverlay) {
+        // РћРїСЂРµРґРµР»СЏРµРј СЃСЂРѕРє
+        let maxWeeks = this.p._pregMaxWeeks || 40;
+        if (!this.p._pregMaxWeeks && s.modules.auOverlay) {
             if (s.auPreset === 'omegaverse') maxWeeks = s.auSettings.omegaverse.pregnancyWeeks || 36;
             if (s.auPreset === 'fantasy') {
                 const rw = s.auSettings.fantasy.pregnancyByRace[this.p.race];
@@ -157,10 +157,10 @@ export class PregnancyEngine {
         }
         this.pr.maxWeeks = maxWeeks;
 
-        // Выключаем цикл
+        // Р’С‹РєР»СЋС‡Р°РµРј С†РёРєР»
         if (this.p.cycle) this.p.cycle.enabled = false;
 
-        // Влияние на здоровье
+        // Р’Р»РёСЏРЅРёРµ РЅР° Р·РґРѕСЂРѕРІСЊРµ
         if (this.p.health) {
             this.p.health.energy = Math.max(this.p.health.energy - 10, 20);
         }
@@ -175,7 +175,7 @@ export class PregnancyEngine {
         }
         this.pr.weightGain = this.weightGainEstimate;
 
-        // Авто-осложнения с шансом
+        // РђРІС‚Рѕ-РѕСЃР»РѕР¶РЅРµРЅРёСЏ СЃ С€Р°РЅСЃРѕРј
         const s = getSettings();
         if (s.healthSettings.autoGenerateEvents && days >= 7) {
             const chance = s.healthSettings.complicationChance * (this.pr.fetusCount > 1 ? 1.5 : 1);
@@ -209,7 +209,7 @@ export class PregnancyEngine {
         if (this.p.cycle) this.p.cycle.enabled = true;
     }
 
-    // Для промпта
+    // Р”Р»СЏ РїСЂРѕРјРїС‚Р°
     toPromptData() {
         return {
             week: this.pr.week,
@@ -228,3 +228,4 @@ export class PregnancyEngine {
         };
     }
 }
+

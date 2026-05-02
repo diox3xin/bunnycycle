@@ -129,6 +129,7 @@ export function renderCycle() {
     if (!p || !p.cycle) { panel.innerHTML = '<div class="bc-empty">Выберите персонажа</div>'; return; }
 
     const ce = new CycleEngine(p);
+    const hre = new HeatRutEngine(p);
     const cal = ce.getFullCalendar();
 
     let calHtml = '<div class="bc-calendar">';
@@ -428,7 +429,7 @@ export function populateCharSelects() {
     const selectors = [
         'bc-cycle-char', 'bc-preg-char', 'bc-health-char',
         'bc-intim-target', 'bc-intim-partner', 'bc-baby-parent',
-        'bc-ovi-char'
+        'bc-ovi-char', 'bc-family-focus'
     ];
     for (const id of selectors) {
         const el = document.getElementById(id);
@@ -867,6 +868,13 @@ export function renderFamilyTree() {
     const chars = s.characters || {};
     const rels = s.relationships || [];
     const names = Object.keys(chars);
+    const focusSel = document.getElementById('bc-family-focus');
+    let focusName = names[0];
+    if (focusSel) {
+        focusSel.innerHTML = names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+        focusName = focusSel.value && chars[focusSel.value] ? focusSel.value : names[0];
+        focusSel.value = focusName;
+    }
 
     if (!names.length) {
         el.innerHTML = '<div class="bc-empty">Нет данных для дерева</div>';
@@ -876,7 +884,7 @@ export function renderFamilyTree() {
     // Собираем все связи
     let html = '<div class="bc-ftree">';
 
-    for (const name of names) {
+    for (const name of [focusName]) {
         const p = chars[name];
         if (!p?._enabled) continue;
         const sexIcon = p.bioSex === 'M' ? '👨' : p.bioSex === 'F' ? '👩' : '🧑';

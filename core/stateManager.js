@@ -1,5 +1,5 @@
-/**
- * BunnyCycle v3.0 — Центральное хранилище состояний
+﻿/**
+ * BunnyCycle v3.0 вЂ” Р¦РµРЅС‚СЂР°Р»СЊРЅРѕРµ С…СЂР°РЅРёР»РёС‰Рµ СЃРѕСЃС‚РѕСЏРЅРёР№
  */
 
 import { extension_settings } from '/scripts/extensions.js';
@@ -9,13 +9,13 @@ import { deepMerge } from '../utils/helpers.js';
 const EXT = 'bunnycycle';
 
 // ========================
-// ДЕФОЛТНЫЕ НАСТРОЙКИ
+// Р”Р•Р¤РћР›РўРќР«Р• РќРђРЎРўР РћР™РљР
 // ========================
 export const DEFAULTS = {
     enabled: true,
     panelCollapsed: false,
 
-    // Модули
+    // РњРѕРґСѓР»Рё
     modules: {
         cycle: true,
         pregnancy: true,
@@ -26,7 +26,7 @@ export const DEFAULTS = {
         auOverlay: false
     },
 
-    // Автоматизация
+    // РђРІС‚РѕРјР°С‚РёР·Р°С†РёСЏ
     autoSyncCharacters: true,
     autoParseCharInfo: true,
     autoDetectIntimacy: true,
@@ -42,23 +42,23 @@ export const DEFAULTS = {
     showLauncherButton: true,
     drawerPosition: 'right',
 
-    // Промпт
+    // РџСЂРѕРјРїС‚
     promptInjectionEnabled: true,
     promptInjectionPosition: 'authornote',
     promptRPMode: true,
     sexDetectMinScore: 2,
 
-    // API для ИИ-анализа
+    // API РґР»СЏ РР-Р°РЅР°Р»РёР·Р°
     aiApi: {
-        enabled: false,        // использовать кастомный API вместо SillyTavern
-        url: '',               // базовый URL (напр. https://api.openai.com/v1)
-        key: '',               // API ключ
-        model: 'gpt-4o-mini',  // модель
+        enabled: false,        // РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ РєР°СЃС‚РѕРјРЅС‹Р№ API РІРјРµСЃС‚Рѕ SillyTavern
+        url: '',               // Р±Р°Р·РѕРІС‹Р№ URL (РЅР°РїСЂ. https://api.openai.com/v1)
+        key: '',               // API РєР»СЋС‡
+        model: 'gpt-4o-mini',  // РјРѕРґРµР»СЊ
         maxTokens: 800,
         temperature: 0.05
     },
 
-    // Время мира
+    // Р’СЂРµРјСЏ РјРёСЂР°
     worldDate: { year: 2025, month: 1, day: 1, hour: 12, minute: 0, frozen: false },
 
     // AU
@@ -92,7 +92,7 @@ export const DEFAULTS = {
         }
     },
 
-    // Кастомный AU (текст → в промпт)
+    // РљР°СЃС‚РѕРјРЅС‹Р№ AU (С‚РµРєСЃС‚ в†’ РІ РїСЂРѕРјРїС‚)
     customAu: {
         diseases: '',
         pregnancyRules: '',
@@ -100,7 +100,7 @@ export const DEFAULTS = {
         worldRules: ''
     },
 
-    // Настройки здоровья
+    // РќР°СЃС‚СЂРѕР№РєРё Р·РґРѕСЂРѕРІСЊСЏ
     healthSettings: {
         autoGenerateEvents: true,
         complicationChance: 0.15,
@@ -112,7 +112,7 @@ export const DEFAULTS = {
         seasonalDiseases: true
     },
 
-    // Данные
+    // Р”Р°РЅРЅС‹Рµ
     characters: {},
     relationships: [],
     diceLog: [],
@@ -121,12 +121,12 @@ export const DEFAULTS = {
     chatProfiles: {},
     currentChatId: null,
 
-    // Отладка
+    // РћС‚Р»Р°РґРєР°
     debugTrace: false
 };
 
 // ========================
-// API ХРАНИЛИЩА
+// API РҐР РђРќРР›РР©Рђ
 // ========================
 export function getSettings() {
     return extension_settings[EXT];
@@ -151,30 +151,34 @@ export function resetSettings() {
 }
 
 // ========================
-// ФАБРИКА ПРОФИЛЕЙ ПЕРСОНАЖЕЙ
+// Р¤РђР‘Р РРљРђ РџР РћР¤РР›Р•Р™ РџР•Р РЎРћРќРђР–Р•Р™
 // ========================
 export function makeProfile(name, isUser, sex) {
     const isMale = sex === 'M';
-    const resolvedSex = sex || null; // null = пол не определён
+    const resolvedSex = sex || null; // null = РїРѕР» РЅРµ РѕРїСЂРµРґРµР»С‘РЅ
     return {
         name,
         bioSex: resolvedSex,
         secondarySex: null,
         race: 'human',
+        _customRace: '',
         contraception: 'none',
         eyeColor: '',
         hairColor: '',
         age: null,
         pregnancyDifficulty: 'normal',
         _isUser: isUser,
+        _isNPC: false,
         _enabled: true,
         _canLayEggs: false,
-        // Ручные правки (чтобы LLM не перезаписывал)
+        _canGetPregnant: null,
+        _pregMaxWeeks: null,
+        // Р СѓС‡РЅС‹Рµ РїСЂР°РІРєРё (С‡С‚РѕР±С‹ LLM РЅРµ РїРµСЂРµР·Р°РїРёСЃС‹РІР°Р»)
         _mB: false, _mS: false, _mR: false, _mE: false, _mH: false, _mP: false, _mCyc: false,
         _sexSource: '',
         _sexConfidence: 0,
 
-        // Цикл
+        // Р¦РёРєР»
         cycle: {
             enabled: !isMale,
             currentDay: Math.floor(Math.random() * 28) + 1,
@@ -185,14 +189,14 @@ export function makeProfile(name, isUser, sex) {
             cycleCount: 0
         },
 
-        // Беременность
+        // Р‘РµСЂРµРјРµРЅРЅРѕСЃС‚СЊ
         pregnancy: {
             active: false, week: 0, day: 0, maxWeeks: 40,
             father: null, fetusCount: 1, fetusSexes: [],
             complications: [], weightGain: 0
         },
 
-        // Роды
+        // Р РѕРґС‹
         labor: {
             active: false, stage: 'latent', dilation: 0,
             hoursElapsed: 0, babiesDelivered: 0, totalBabies: 1,
@@ -215,27 +219,27 @@ export function makeProfile(name, isUser, sex) {
         },
         oviposition: null,
 
-        // Дети
+        // Р”РµС‚Рё
         babies: [],
 
-        // Здоровье (масштабная система)
+        // Р—РґРѕСЂРѕРІСЊРµ (РјР°СЃС€С‚Р°Р±РЅР°СЏ СЃРёСЃС‚РµРјР°)
         health: {
-            conditions: [],       // Активные состояния [{id, type, label, severity, day, maxDays, note, effects, treatable}]
-            immunity: 70,         // 0-100 иммунитет
-            stress: 20,           // 0-100 стресс
-            energy: 80,           // 0-100 энергия
-            pain: 0,              // 0-100 боль
-            bloodLoss: 0,         // 0-100 кровопотеря
+            conditions: [],       // РђРєС‚РёРІРЅС‹Рµ СЃРѕСЃС‚РѕСЏРЅРёСЏ [{id, type, label, severity, day, maxDays, note, effects, treatable}]
+            immunity: 70,         // 0-100 РёРјРјСѓРЅРёС‚РµС‚
+            stress: 20,           // 0-100 СЃС‚СЂРµСЃСЃ
+            energy: 80,           // 0-100 СЌРЅРµСЂРіРёСЏ
+            pain: 0,              // 0-100 Р±РѕР»СЊ
+            bloodLoss: 0,         // 0-100 РєСЂРѕРІРѕРїРѕС‚РµСЂСЏ
             mentalState: 'stable', // stable, anxious, depressed, euphoric, traumatized, numb
-            allergies: [],        // аллергии
-            chronicConditions: [], // хронические болезни
-            injuries: [],         // травмы [{id, type, location, severity, day, healDays, scarring}]
-            medications: [],      // лекарства [{id, name, effect, daysLeft, sideEffects}]
-            lastCheckup: null,    // дата последнего осмотра
-            history: []           // история болезней [{label, resolvedDate, outcome}]
+            allergies: [],        // Р°Р»Р»РµСЂРіРёРё
+            chronicConditions: [], // С…СЂРѕРЅРёС‡РµСЃРєРёРµ Р±РѕР»РµР·РЅРё
+            injuries: [],         // С‚СЂР°РІРјС‹ [{id, type, location, severity, day, healDays, scarring}]
+            medications: [],      // Р»РµРєР°СЂСЃС‚РІР° [{id, name, effect, daysLeft, sideEffects}]
+            lastCheckup: null,    // РґР°С‚Р° РїРѕСЃР»РµРґРЅРµРіРѕ РѕСЃРјРѕС‚СЂР°
+            history: []           // РёСЃС‚РѕСЂРёСЏ Р±РѕР»РµР·РЅРµР№ [{label, resolvedDate, outcome}]
         },
 
-        // Эмоции (для виджета)
+        // Р­РјРѕС†РёРё (РґР»СЏ РІРёРґР¶РµС‚Р°)
         mood: {
             current: 'neutral',   // neutral, happy, sad, angry, scared, aroused, exhausted, in_pain
             intensity: 'mild'     // mild, moderate, strong, overwhelming
@@ -244,10 +248,11 @@ export function makeProfile(name, isUser, sex) {
 }
 
 // ========================
-// ПРОВЕРКИ
+// РџР РћР’Р•Р РљР
 // ========================
 export function canGetPregnant(p) {
     if (!p || !p._enabled) return false;
+    if (p._canGetPregnant !== undefined && p._canGetPregnant !== null) return !!p._canGetPregnant;
     if (p.bioSex === 'F') return true;
     const s = getSettings();
     if (p.bioSex === 'M' && s.modules.auOverlay && s.auPreset === 'omegaverse' &&
@@ -257,9 +262,15 @@ export function canGetPregnant(p) {
 
 export function ensureProfileFields(p) {
     if (!p.bond) p.bond = { bonded: false, partner: null, type: null, strength: 0, daysSinceSeparation: 0, withdrawalActive: false, markLocation: '' };
+    if (!p.heat) p.heat = { active: false, currentDay: 0, cycleDays: 30, duration: 5, intensity: 'moderate', daysSinceLast: 0, onSuppressants: false };
+    if (!p.rut) p.rut = { active: false, currentDay: 0, cycleDays: 35, duration: 4, intensity: 'moderate', daysSinceLast: 0 };
     if (!p.labor.complications) p.labor.complications = [];
     if (!p.pregnancy.complications) p.pregnancy.complications = [];
     if (!p.pregnancy.fetusSexes) p.pregnancy.fetusSexes = [];
+    if (p._canGetPregnant === undefined) p._canGetPregnant = null;
+    if (p._pregMaxWeeks === undefined) p._pregMaxWeeks = null;
+    if (p._customRace === undefined) p._customRace = "";
+    if (p._isNPC === undefined) p._isNPC = false;
     if (!p.health) p.health = makeProfile('', false, 'F').health;
     if (p.health.immunity === undefined) p.health.immunity = 70;
     if (p.health.stress === undefined) p.health.stress = 20;

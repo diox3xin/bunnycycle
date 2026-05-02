@@ -7,7 +7,7 @@ import { renderExtensionTemplateAsync, getContext, extension_settings } from '/s
 import { getSlideToggleOptions, saveSettingsDebounced, eventSource, event_types } from '/script.js';
 import { slideToggle } from '/lib.js';
 
-import { initSettings, getSettings, saveSettings, ensureProfileFields } from './core/stateManager.js';
+import { initSettings, getSettings, saveSettings, ensureProfileFields, makeProfile } from './core/stateManager.js';
 import { syncCharacters, ProfileManager } from './core/profileManager.js';
 import { CycleEngine } from './core/cycleEngine.js';
 import { PregnancyEngine } from './core/pregnancyEngine.js';
@@ -448,7 +448,7 @@ function initDrawerEvents() {
         renderCharEditor(name);
     });
 
-    $d.on('click', '.bc-save-editor', () => {
+    $d.on('click', ' .bc-save-editor'.replace(' ' ,''), () => {
         const s = getSettings();
         const name = $('#bc-edit-name').val();
         const p = s.characters[name];
@@ -461,18 +461,17 @@ function initDrawerEvents() {
                 return;
             }
             if (field === '_pregMaxWeeks') {
-                p.pregnancy.maxWeeks = parseInt(this.value) || 40;
+                p._pregMaxWeeks = parseInt(this.value) || 40;
+                if (p.pregnancy) p.pregnancy.maxWeeks = p._pregMaxWeeks;
                 return;
             }
             if (field === '_customRace') {
-                // Обрабатывается ниже
                 return;
             }
-            const val = this.type === 'number' ? (parseFloat(this.value) || 0) : 
+            const val = this.type === 'number' ? (parseFloat(this.value) || 0) :
                         this.type === 'checkbox' ? this.checked : this.value;
             p[field] = val;
         });
-        // Кастомная раса
         if (p.race === 'other') {
             const customRace = $('[data-field="_customRace"]').val()?.trim();
             if (customRace) {
@@ -480,20 +479,31 @@ function initDrawerEvents() {
                 p._customRace = customRace;
             }
         }
-        // Ручные правки — ставим флаги чтобы sync не перезаписывал
         p._mB = true; p._mR = true; p._mE = true; p._mH = true;
-        // Цикл
         if (!p.cycle) p.cycle = {};
         $('.bc-ed-cyc').each(function () {
             const field = $(this).data('field');
-            if (this.type === 'checkbox') {
-                p.cycle[field] = this.checked;
-            } else if (this.type === 'number') {
-                p.cycle[field] = parseInt(this.value) || 0;
-            } else {
-                p.cycle[field] = this.value;
-            }
+            if (this.type === 'checkbox') p.cycle[field] = this.checked;
+            else if (this.type === 'number') p.cycle[field] = parseInt(this.value) || 0;
+            else p.cycle[field] = this.value;
         });
+        if (p.secondarySex === 'omega') {
+            if (!p.heat) p.heat = { active: false, currentDay: 0, cycleDays: 30, duration: 5, intensity: 'moderate', daysSinceLast: 0, onSuppressants: false };
+            $('.bc-ed-heat').each(function () {
+                const field = $(this).data('field');
+                if (this.type === 'checkbox') p.heat[field] = this.checked;
+                else if (this.type === 'number') p.heat[field] = parseInt(this.value) || 0;
+                else p.heat[field] = this.value;
+            });
+        } else if (p.secondarySex === 'alpha') {
+            if (!p.rut) p.rut = { active: false, currentDay: 0, cycleDays: 35, duration: 4, intensity: 'moderate', daysSinceLast: 0 };
+            $('.bc-ed-heat').each(function () {
+                const field = $(this).data('field');
+                if (this.type === 'checkbox') p.rut[field] = this.checked;
+                else if (this.type === 'number') p.rut[field] = parseInt(this.value) || 0;
+                else p.rut[field] = this.value;
+            });
+        }
         saveSettings();
         hideCharEditor();
         rebuild();
@@ -1186,8 +1196,12 @@ ${msgs}`;
     // Применяем данные
     if (data.characters) {
         for (const [name, info] of Object.entries(data.characters)) {
+            if (!s.characters[name]) {
+                s.characters[name] = makeProfile(name, false, info.bioSex || null);
+                s.characters[name]._isNPC = true;
+            }
             const p = s.characters[name];
-            if (!p) continue;
+            ensureProfileFields(p);
 
             // Пол
             if (info.bioSex && !p._mB) {
@@ -1209,8 +1223,13 @@ ${msgs}`;
     if (data.children?.length) {
         for (const child of data.children) {
             const motherName = child.mother;
+            if (motherName && !s.characters[motherName]) {
+                s.characters[motherName] = makeProfile(motherName, false, null);
+                s.characters[motherName]._isNPC = true;
+            }
             const p = s.characters[motherName];
             if (!p) continue;
+            ensureProfileFields(p);
             if (!p.babies) p.babies = [];
 
             // Проверяем нет ли уже такого ребёнка
@@ -1236,6 +1255,8 @@ ${msgs}`;
                 (r.char1 === rel.char1 && r.char2 === rel.char2) ||
                 (r.char1 === rel.char2 && r.char2 === rel.char1)
             );
+            if (!s.characters[rel.char1]) { s.characters[rel.char1] = makeProfile(rel.char1, false, null); s.characters[rel.char1]._isNPC = true; }
+            if (!s.characters[rel.char2]) { s.characters[rel.char2] = makeProfile(rel.char2, false, null); s.characters[rel.char2]._isNPC = true; }
             if (!existing) {
                 RelationshipManager.add(rel.char1, rel.char2, rel.type || 'друзья', 'AI-detected');
                 LOG(`❤️ AI добавил отношение: ${rel.char1} ↔ ${rel.char2} (${rel.type})`);

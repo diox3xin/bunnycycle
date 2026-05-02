@@ -121,13 +121,39 @@ async function parseCharacterCards(ctx, charNames) {
         if (!profile) continue;
 
         // Ищем карточку
-        let cardText = '';
+        let cardText = "";
         const ch = ctx.characters?.find(c => c.name === name);
         if (ch) {
             cardText = [ch.description, ch.personality, ch.scenario, ch.mes_example].filter(Boolean).join('\n');
         }
 
         if (!cardText) continue;
+
+        const missingFieldCount = [
+            !profile.bioSex,
+            !profile.secondarySex,
+            !profile.age,
+            !profile.eyeColor,
+            !profile.hairColor,
+            (!profile.race || profile.race === "human")
+        ].filter(Boolean).length;
+
+        if (missingFieldCount >= 3 && cardText.length > 120) {
+            const llmData = await extractCharacterInfoWithLLM(name, cardText);
+            if (llmData) {
+                if (!profile._mB && llmData.bioSex && !profile.bioSex) {
+                    profile.bioSex = llmData.bioSex;
+                    profile._sexSource = "llm_card";
+                    profile._sexConfidence = 3;
+                    if (llmData.bioSex === "M") profile.cycle.enabled = false;
+                }
+                if (!profile._mS && llmData.secondarySex && !profile.secondarySex) profile.secondarySex = llmData.secondarySex;
+                if (!profile._mR && llmData.race && (!profile.race || profile.race === "human")) profile.race = llmData.race;
+                if (!profile._mE && llmData.eyeColor && !profile.eyeColor) profile.eyeColor = llmData.eyeColor;
+                if (!profile._mH && llmData.hairColor && !profile.hairColor) profile.hairColor = llmData.hairColor;
+                if (llmData.age && !profile.age) profile.age = llmData.age;
+            }
+        }
 
         // Парсинг пола из текста — только если не было ручной правки и уверенность низкая
         if (!profile._mB && profile._sexConfidence < 3) {
@@ -136,32 +162,34 @@ async function parseCharacterCards(ctx, charNames) {
                 profile.bioSex = sex.value;
                 profile._sexSource = sex.source;
                 profile._sexConfidence = sex.confidence;
-                if (sex.value === 'M') {
+                if (sex.value === "M") {
                     profile.cycle.enabled = false;
                 }
             }
         }
 
-        // Парсинг расы — только если не было ручной правки И раса ещё дефолтная (null или human)
-        if (!profile._mR && (!profile.race || profile.race === 'human')) {
+        if (!profile._mR && (!profile.race || profile.race === "human")) {
             const race = guessRace(cardText);
             if (race) profile.race = race;
         }
 
-        // Парсинг глаз/волос — только если не было ручной правки И поле пустое
         if (!profile._mE && !profile.eyeColor) {
-            const eyes = guessColor(cardText, 'глаз');
+            const eyes = guessColor(cardText, "глаз");
             if (eyes) profile.eyeColor = eyes;
         }
         if (!profile._mH && !profile.hairColor) {
-            const hair = guessColor(cardText, 'волос');
+            const hair = guessColor(cardText, "волос");
             if (hair) profile.hairColor = hair;
         }
 
-        // Парсинг вторичного пола (омегаверс)
-        if (!profile._mS && s.modules.auOverlay && s.auPreset === 'omegaverse') {
+        if (!profile._mS && s.modules.auOverlay && s.auPreset === "omegaverse") {
             const sec = guessSecondarySex(cardText);
             if (sec) profile.secondarySex = sec;
+        }
+
+        if (!profile.age) {
+            const age = guessAge(cardText);
+            if (age) profile.age = age;
         }
     }
 }
@@ -250,10 +278,38 @@ function guessColor(text, target) {
 
 function guessSecondarySex(text) {
     const lower = text.toLowerCase();
-    if (/\b(?:альфа|alpha)\b/i.test(lower)) return 'alpha';
-    if (/\b(?:омега|omega)\b/i.test(lower)) return 'omega';
-    if (/\b(?:бета|beta)\b/i.test(lower)) return 'beta';
+    if (/(?:альфа|alpha|a\/b\/o\s*alpha)/i.test(lower)) return 'alpha';
+    if (/(?:омега|omega|a\/b\/o\s*omega)/i.test(lower)) return 'omega';
+    if (/(?:бета|beta|a\/b\/o\s*beta)/i.test(lower)) return 'beta';
     return null;
+}
+
+
+function guessAge(text) {
+    const patterns = [
+        /(?:возраст|age)\s*[:—–-]?\s*(\d{1,3})/i,
+        /(\d{1,3})\s*(?:лет|года|год|years? old)/i,
+    ];
+    for (const re of patterns) {
+        const m = text.match(re);
+        if (m) {
+            const age = parseInt(m[1], 10);
+            if (age >= 1 && age <= 999) return age;
+        }
+    }
+    return null;
+}
+
+async function extractCharacterInfoWithLLM(name, cardText) {
+    try {
+        const systemPrompt = 'Extract structured character profile data from a roleplay card. Return ONLY valid JSON.';
+        const userPrompt = `Character name: ${name}\n\nExtract these fields if they are explicitly stated or strongly implied:\n- bioSex: M/F/null\n- secondarySex: alpha/beta/omega/null\n- race: one short word in english lowercase or null\n- age: number or null\n- eyeColor: short string or null\n- hairColor: short string or null\n\nReturn JSON exactly like:\n{"bioSex":null,"secondarySex":null,"race":null,"age":null,"eyeColor":null,"hairColor":null}\n\nCard:\n${cardText}`;
+        const response = await LLM.call(systemPrompt, userPrompt);
+        const data = LLM.parseJSON(response);
+        return data || null;
+    } catch {
+        return null;
+    }
 }
 
 // ========================
