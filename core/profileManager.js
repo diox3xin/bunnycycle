@@ -135,10 +135,10 @@ function guessSex(text, name) {
     const lower = text.toLowerCase();
 
     // Прямые указания (высокая уверенность)
-    // Мужские
-    const maleStrong = /\b(?:мужчина|парень|мужской|мальчик|male|boy|man|юноша|муж(?:чин)?|принц|король|лорд|lord|prince|king)\b/i;
+    // Мужские — без \b для кириллицы!
+    const maleStrong = /(?:мужчина|парень|мужской|мальчик|юноша|принц|король|лорд|\bmale\b|\bboy\b|\bman\b|\blord\b|\bprince\b|\bking\b|\bhe is\b)/i;
     // Женские
-    const femaleStrong = /\b(?:женщина|девушка|женский|девочка|female|girl|woman|принцесса|королева|леди|lady|princess|queen)\b/i;
+    const femaleStrong = /(?:женщина|девушка|женский|девочка|принцесса|королева|леди|\bfemale\b|\bgirl\b|\bwoman\b|\blady\b|\bprincess\b|\bqueen\b|\bshe is\b)/i;
 
     if (maleStrong.test(text)) {
         return { value: 'M', confidence: 2, source: 'card-keywords' };
@@ -166,18 +166,22 @@ function guessSex(text, name) {
 }
 
 function guessRace(text) {
+    // НЕ используем \b для кириллицы — он не работает с Unicode!
     const races = [
-        { pattern: /\b(?:эльф(?:ийк|ийск)?|elf|elven|эльфов)\b/i, value: 'elf' },
-        { pattern: /\b(?:дварф|гном|dwarf|dwarven)\b/i, value: 'dwarf' },
-        { pattern: /\b(?:орк|orc|orcish)\b/i, value: 'orc' },
-        { pattern: /\b(?:демон|demon|суккуб|инкуб|succub|incub)\b/i, value: 'demon' },
-        { pattern: /\b(?:вампир|vampire|vampiric)\b/i, value: 'vampire' },
-        { pattern: /\b(?:оборотень|werewolf|ликантроп|lycanthrop)\b/i, value: 'werewolf' },
-        { pattern: /\b(?:фея|fairy|фэйри|fae)\b/i, value: 'fairy' },
-        { pattern: /\b(?:дракон|dragon|dragonborn)\b/i, value: 'dragon' },
-        { pattern: /\b(?:полурослик|halfling|хоббит|hobbit)\b/i, value: 'halfling' },
-        { pattern: /\b(?:кошко|neko|неко|кемономими|catgirl|catboy)\b/i, value: 'neko' },
-        { pattern: /\b(?:ангел|angel|серафим|seraph)\b/i, value: 'angel' },
+        { pattern: /(?:эльф|эльфийк|эльфийск|эльфов|elf|elven|half-elf|полуэльф)/i, value: 'elf' },
+        { pattern: /(?:дварф|гном|dwarf|dwarven)/i, value: 'dwarf' },
+        { pattern: /(?:орк|orc|orcish|полуорк|half-orc)/i, value: 'orc' },
+        { pattern: /(?:демон|demon|суккуб|инкуб|succub|incub|дьявол|devil)/i, value: 'demon' },
+        { pattern: /(?:вампир|vampire|vampiric|носферату)/i, value: 'vampire' },
+        { pattern: /(?:оборотень|werewolf|ликантроп|lycanthrop|волколак)/i, value: 'werewolf' },
+        { pattern: /(?:фея|fairy|фэйри|fae|пикси|pixie)/i, value: 'fairy' },
+        { pattern: /(?:дракон|dragon|dragonborn|драконид)/i, value: 'dragon' },
+        { pattern: /(?:полурослик|halfling|хоббит|hobbit|gnome)/i, value: 'halfling' },
+        { pattern: /(?:кошко|neko|неко|кемономими|catgirl|catboy|кицунэ|kitsune)/i, value: 'neko' },
+        { pattern: /(?:ангел|angel|серафим|seraph|архангел)/i, value: 'angel' },
+        { pattern: /(?:тифлинг|tiefling)/i, value: 'tiefling' },
+        { pattern: /(?:русалк|mermaid|сирен|siren)/i, value: 'mermaid' },
+        { pattern: /(?:зверолюд|kemono|антро|anthro|furry)/i, value: 'beastkin' },
     ];
     for (const r of races) {
         if (r.pattern.test(text)) return r.value;
