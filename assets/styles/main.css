@@ -4,18 +4,19 @@
 
 /* === NAVBAR DRAWER === */
 
-/* Иконка лапки в навбаре */
+/* Иконка лапки в навбаре — КРУПНАЯ */
 #bc_drawer_icon {
     color: var(--SmartThemeBodyColor, #ccc);
-    font-size: 20px;
+    font-size: 24px;
     transition: color 0.2s, transform 0.2s;
 }
 #bc_drawer_icon:hover {
     color: #c88cff;
-    transform: scale(1.1);
+    transform: scale(1.15);
 }
 #bc_drawer_icon.openIcon {
     color: #c88cff;
+    text-shadow: 0 0 8px rgba(200,140,255,0.4);
 }
 
 /* Контент drawer */
@@ -23,6 +24,7 @@
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: rgba(255,255,255,0.15) transparent;
+    max-height: 85vh;
 }
 
 /* Шапка drawer */
@@ -306,9 +308,10 @@
 .bc-popup {
     background: var(--SmartThemeBlurTintColor, #1a1a2e);
     border: 1px solid var(--SmartThemeBorderColor, #444);
-    border-radius: 12px; padding: 0; width: 360px; max-width: 95vw;
-    max-height: 80vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    border-radius: 12px; padding: 0; width: 360px; max-width: 92vw;
+    max-height: 75vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
     animation: bc-popup-in 0.2s ease;
+    margin: 16px;
 }
 .bc-popup-wide { width: 500px; }
 @keyframes bc-popup-in {
@@ -391,40 +394,77 @@
 @media (max-width: 768px) {
     .bc-tabs { gap: 1px; padding: 3px 4px; }
     .bc-tab { padding: 5px 6px; font-size: 9px; min-width: 40px; }
-    .bc-tab i { font-size: 12px; }
+    .bc-tab i { font-size: 13px; }
     .bc-tab span { display: none; }
 
     .bc-tab-contents { padding: 6px 8px; }
     .bc-stat-row { font-size: 11px; }
-    .bc-btn { padding: 5px 10px; font-size: 11px; }
-    .bc-btn-sm { padding: 3px 8px; font-size: 10px; }
+    .bc-btn { padding: 8px 14px; font-size: 13px; min-height: 36px; }
+    .bc-btn-sm { padding: 6px 12px; font-size: 12px; min-height: 32px; }
+    .bc-icon-btn { padding: 8px; font-size: 16px; min-width: 36px; min-height: 36px; }
 
-    .bc-popup { width: 95vw; max-height: 85vh; }
+    /* Попапы — адаптация для телефонов */
+    .bc-popup { 
+        width: 95vw; max-width: 95vw; max-height: 80vh; 
+        margin: 8px; border-radius: 10px;
+    }
     .bc-popup-body { padding: 12px; }
+    .bc-popup-head { padding: 14px 16px; font-size: 15px; }
+    .bc-popup-close { 
+        font-size: 18px; padding: 8px; 
+        min-width: 40px; min-height: 40px;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .bc-popup .bc-input,
+    .bc-popup .bc-select,
+    .bc-popup .bc-textarea {
+        font-size: 14px; padding: 10px 12px;
+    }
+    .bc-popup .bc-btn,
+    .bc-popup .bc-btn-sm {
+        padding: 10px 16px; font-size: 14px; min-height: 40px;
+    }
+    .bc-popup .bc-label { font-size: 13px; }
+    .bc-popup .bc-checkbox { font-size: 14px; padding: 6px 0; }
 
     .bc-calendar { gap: 2px; }
-    .bc-cal-day { width: 20px; height: 20px; font-size: 9px; }
+    .bc-cal-day { width: 22px; height: 22px; font-size: 9px; }
 
-    .bc-dash-card { padding: 6px 8px; }
-    .bc-dash-name { font-size: 12px; }
+    .bc-dash-card { padding: 8px 10px; }
+    .bc-dash-name { font-size: 13px; }
 
-    .bc-bar-label { width: 70px; font-size: 10px; }
-    .bc-bar-value { width: 28px; font-size: 10px; }
+    .bc-bar-label { width: 75px; font-size: 11px; }
+    .bc-bar-value { width: 32px; font-size: 11px; }
 
-    .bc-widget { font-size: 11px; }
-    .bc-widget-header { padding: 4px 8px; }
+    .bc-widget { font-size: 12px; }
+    .bc-widget-header { padding: 6px 10px; }
+
+    .bc-input, .bc-select, .bc-textarea { font-size: 13px; padding: 8px 10px; }
+    .bc-section-head { font-size: 13px; }
 }
 
 @media (max-width: 480px) {
     .bc-header { padding: 8px 10px; }
-    .bc-title { font-size: 13px; }
-    .bc-section-head { font-size: 11px; }
+    .bc-title { font-size: 14px; }
+    .bc-section-head { font-size: 12px; }
 
     .bc-tab-contents { padding: 4px 6px; }
     .bc-row { flex-direction: column; align-items: stretch; }
     .bc-row .bc-select { min-width: unset; }
     .bc-btn-group { flex-direction: column; }
+    .bc-btn-group .bc-btn,
+    .bc-btn-group .bc-btn-sm { width: 100%; justify-content: center; }
+
+    .bc-popup { 
+        width: 98vw; max-width: 98vw; max-height: 85vh;
+        margin: 4px; border-radius: 8px;
+    }
 
     .bc-preg-header { flex-direction: column; align-items: flex-start; gap: 4px; }
     .bc-preg-weeks { margin-left: 0; }
+
+    .bc-dice-result { padding: 16px; }
+    .bc-dice-big { font-size: 40px; }
+    .bc-dice-roll { font-size: 20px; }
+    .bc-dice-outcome { font-size: 16px; }
 }

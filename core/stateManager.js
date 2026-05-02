@@ -154,10 +154,11 @@ export function resetSettings() {
 // ФАБРИКА ПРОФИЛЕЙ ПЕРСОНАЖЕЙ
 // ========================
 export function makeProfile(name, isUser, sex) {
-    const isMale = (sex || 'F') === 'M';
+    const isMale = sex === 'M';
+    const resolvedSex = sex || null; // null = пол не определён
     return {
         name,
-        bioSex: sex || 'F',
+        bioSex: resolvedSex,
         secondarySex: null,
         race: 'human',
         contraception: 'none',

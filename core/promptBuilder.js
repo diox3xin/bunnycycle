@@ -30,7 +30,8 @@ export function generatePrompt() {
         const p = chars[name];
         if (!p._enabled) continue;
 
-        const charParts = [`\n━━━ ${name} (${p.bioSex === 'M' ? 'М' : 'Ж'}${p.secondarySex ? '/' + p.secondarySex : ''}, ${p.race}) ━━━`];
+        const sexLabel = p.bioSex === 'M' ? 'М' : p.bioSex === 'F' ? 'Ж' : '?';
+        const charParts = [`\n━━━ ${name} (${sexLabel}${p.secondarySex ? '/' + p.secondarySex : ''}, ${p.race || 'human'}) ━━━`];
 
         // Цикл
         if (s.modules.cycle && p.cycle?.enabled && !p.pregnancy?.active) {
