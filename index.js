@@ -413,6 +413,12 @@ function initDrawerEvents() {
         renderCharEditor(name);
     });
     $d.on('click', '.bc-close-editor', () => hideCharEditor());
+    // Показ/скрытие поля "Своя раса" при выборе "other"
+    $d.on('change', '.bc-ed[data-field="race"]', function () {
+        const row = document.getElementById('bc-custom-race-row');
+        if (row) row.style.display = this.value === 'other' ? '' : 'none';
+    });
+
     $d.on('click', '.bc-save-editor', () => {
         const s = getSettings();
         const name = $('#bc-edit-name').val();
@@ -421,9 +427,32 @@ function initDrawerEvents() {
         // Основные поля
         $('.bc-ed').each(function () {
             const field = $(this).data('field');
-            const val = this.type === 'number' ? (parseFloat(this.value) || 0) : this.value;
+            if (field === '_canGetPregnant') {
+                p._canGetPregnant = this.checked;
+                return;
+            }
+            if (field === '_pregMaxWeeks') {
+                p.pregnancy.maxWeeks = parseInt(this.value) || 40;
+                return;
+            }
+            if (field === '_customRace') {
+                // Обрабатывается ниже
+                return;
+            }
+            const val = this.type === 'number' ? (parseFloat(this.value) || 0) : 
+                        this.type === 'checkbox' ? this.checked : this.value;
             p[field] = val;
         });
+        // Кастомная раса
+        if (p.race === 'other') {
+            const customRace = $('[data-field="_customRace"]').val()?.trim();
+            if (customRace) {
+                p.race = customRace;
+                p._customRace = customRace;
+            }
+        }
+        // Ручные правки — ставим флаги чтобы sync не перезаписывал
+        p._mB = true; p._mR = true; p._mE = true; p._mH = true;
         // Цикл
         if (!p.cycle) p.cycle = {};
         $('.bc-ed-cyc').each(function () {

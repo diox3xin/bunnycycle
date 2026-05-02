@@ -495,8 +495,14 @@ export function renderCharEditor(charName) {
         <div class="bc-row"><label>Возраст</label><input class="bc-input bc-ed" data-field="age" type="number" value="${p.age || ''}" min="0" max="9999" placeholder="—"></div>
         <div class="bc-row"><label>Цвет глаз</label><input class="bc-input bc-ed" data-field="eyeColor" value="${escapeHtml(p.eyeColor || '')}"></div>
         <div class="bc-row"><label>Цвет волос</label><input class="bc-input bc-ed" data-field="hairColor" value="${escapeHtml(p.hairColor || '')}"></div>
+        <div class="bc-row" id="bc-custom-race-row" style="display:${isCustomRace || currentRace === 'other' ? '' : 'none'}">
+            <label>Своя раса</label>
+            <input class="bc-input bc-ed" data-field="_customRace" value="${escapeHtml(isCustomRace ? currentRace : (p._customRace || ''))}" placeholder="Введите расу...">
+        </div>
         <div class="bc-row"><label>Контрацепция</label><select class="bc-select bc-ed" data-field="contraception">${contras}</select></div>
         <div class="bc-row"><label>Сложность берем.</label><select class="bc-select bc-ed" data-field="pregnancyDifficulty">${diffs}</select></div>
+        <label class="bc-checkbox"><input type="checkbox" class="bc-ed" data-field="_canGetPregnant" ${canPreg ? 'checked' : ''}> 🤰 Может забеременеть</label>
+        <div class="bc-row"><label>Длина беременности (нед.)</label><input class="bc-input bc-ed" data-field="_pregMaxWeeks" type="number" value="${pregWeeks}" min="4" max="100"></div>
 
         <div class="bc-section-head" style="margin-top:8px"><i class="fa-solid fa-circle-notch"></i> Цикл</div>
         <label class="bc-checkbox"><input type="checkbox" class="bc-ed-cyc" data-field="enabled" ${p.cycle?.enabled ? 'checked' : ''}> Цикл включён</label>
