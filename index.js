@@ -4,7 +4,8 @@
  */
 
 import { renderExtensionTemplateAsync, getContext, extension_settings } from '/scripts/extensions.js';
-import { saveSettingsDebounced, eventSource, event_types } from '/script.js';
+import { getSlideToggleOptions, saveSettingsDebounced, eventSource, event_types } from '/script.js';
+import { slideToggle } from '/lib.js';
 
 import { initSettings, getSettings, saveSettings, ensureProfileFields } from './core/stateManager.js';
 import { syncCharacters, ProfileManager } from './core/profileManager.js';
@@ -25,7 +26,87 @@ import { showAddCharPopup, showAddDiseasePopup, showAddInjuryPopup, showAddMedPo
 import { LLM } from './utils/llmCaller.js';
 
 const EXT = 'bunnycycle';
+const EXTENSION_FOLDER = `third-party/bunnycycle`;
 const LOG = (...args) => console.log('[BunnyCycle]', ...args);
+
+let doNavbarIconClick = null;
+
+/**
+ * Проверка новой навбар-системы SillyTavern
+ */
+function isNewNavbarVersion() {
+    return typeof doNavbarIconClick === 'function';
+}
+
+/**
+ * Импорт doNavbarIconClick (новая навбар-система)
+ */
+async function initNavbarFunction() {
+    try {
+        const scriptModule = await import('/script.js');
+        if (scriptModule.doNavbarIconClick) {
+            doNavbarIconClick = scriptModule.doNavbarIconClick;
+        }
+    } catch (error) {
+        console.warn(`[BunnyCycle] doNavbarIconClick не доступен, используем старый drawer-режим`);
+    }
+}
+
+/**
+ * Открытие/закрытие drawer (старая версия навбара, fallback)
+ */
+function openDrawerLegacy() {
+    const drawerIcon = $('#bc_drawer_icon');
+    const drawerContent = $('#bc_drawer_content');
+
+    if (drawerIcon.hasClass('closedIcon')) {
+        // Закрываем другие открытые drawer
+        $('.openDrawer').not('#bc_drawer_content').not('.pinnedOpen').addClass('resizing').each((_, el) => {
+            slideToggle(el, {
+                ...getSlideToggleOptions(),
+                onAnimationEnd: (elem) => elem.closest('.drawer-content')?.classList.remove('resizing'),
+            });
+        });
+        $('.openIcon').not('#bc_drawer_icon').not('.drawerPinnedOpen').toggleClass('closedIcon openIcon');
+        $('.openDrawer').not('#bc_drawer_content').not('.pinnedOpen').toggleClass('closedDrawer openDrawer');
+
+        drawerIcon.toggleClass('closedIcon openIcon');
+        drawerContent.toggleClass('closedDrawer openDrawer');
+
+        drawerContent.addClass('resizing').each((_, el) => {
+            slideToggle(el, {
+                ...getSlideToggleOptions(),
+                onAnimationEnd: (elem) => elem.closest('.drawer-content')?.classList.remove('resizing'),
+            });
+        });
+    } else {
+        drawerIcon.toggleClass('openIcon closedIcon');
+        drawerContent.toggleClass('openDrawer closedDrawer');
+
+        drawerContent.addClass('resizing').each((_, el) => {
+            slideToggle(el, {
+                ...getSlideToggleOptions(),
+                onAnimationEnd: (elem) => elem.closest('.drawer-content')?.classList.remove('resizing'),
+            });
+        });
+    }
+}
+
+/**
+ * Инициализация drawer (привязка toggle-клика)
+ */
+function initDrawer() {
+    const toggle = $('#bc_drawer .drawer-toggle');
+
+    if (isNewNavbarVersion()) {
+        toggle.on('click', doNavbarIconClick);
+        LOG('Используем новую навбар-систему');
+    } else {
+        $('#bc_drawer_content').attr('data-slide-toggle', 'hidden').css('display', 'none');
+        toggle.on('click', openDrawerLegacy);
+        LOG('Используем старый drawer-режим');
+    }
+}
 
 // ========================
 // ИНИЦИАЛИЗАЦИЯ
@@ -33,20 +114,53 @@ const LOG = (...args) => console.log('[BunnyCycle]', ...args);
 jQuery(async () => {
     LOG('v3.0 — Загрузка...');
 
+    // 0. Проверяем новую навбар-систему
+    await initNavbarFunction();
+
     // 1. Инициализация настроек
     initSettings();
 
-    // 2. Загрузка HTML шаблона
+    // 2. Загрузка HTML шаблона — вставляем в НАВБАР (после кнопки расширений)
     const drawerHtml = await $.get(`/scripts/extensions/third-party/${EXT}/assets/templates/drawer.html`);
-    $('#extensions_settings2').append(drawerHtml);
+    $('#extensions-settings-button').after(drawerHtml);
 
-    // 3. Загрузка CSS
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = `/scripts/extensions/third-party/${EXT}/assets/styles/main.css`;
-    document.head.appendChild(link);
+    // 2.1. Мини-тоггл в панели расширений (для вкл/выкл иконки)
+    const extToggleHtml = `
+        <div id="bc-ext-settings" class="inline-drawer" style="margin-top:4px;">
+            <div class="inline-drawer-toggle inline-drawer-header">
+                <b>🐰 BunnyCycle</b>
+                <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+            </div>
+            <div class="inline-drawer-content">
+                <label class="checkbox_label" style="margin:6px 0;">
+                    <input type="checkbox" id="bc-ext-show-top-icon" checked>
+                    <span>Показать иконку в навбаре</span>
+                </label>
+            </div>
+        </div>
+    `;
+    $('#extensions_settings2').append(extToggleHtml);
 
-    // 4. Инициализация UI
+    // 2.2. Привязка тоггла иконки
+    $('#bc-ext-show-top-icon').on('change', function () {
+        if (this.checked) {
+            $('#bc_drawer').show();
+        } else {
+            // Если открыт — закрываем
+            if ($('#bc_drawer_icon').hasClass('openIcon')) {
+                $('#bc_drawer_icon').toggleClass('openIcon closedIcon');
+                $('#bc_drawer_content').toggleClass('openDrawer closedDrawer').hide();
+            }
+            $('#bc_drawer').hide();
+        }
+    });
+
+    // 3. CSS загружается через manifest.json автоматически
+
+    // 4. Инициализация drawer toggle
+    initDrawer();
+
+    // 5. Инициализация UI
     initTabs();
     initDrawerEvents();
     attachWidgetListeners();

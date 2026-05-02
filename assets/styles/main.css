@@ -2,24 +2,33 @@
    BunnyCycle v3.0 — Полные стили + мобильная адаптация
    ============================================ */
 
-/* === DRAWER === */
-#bc_drawer .drawer-icon {
-    font-size: 18px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    transition: background 0.2s, transform 0.2s;
-}
-#bc_drawer .drawer-icon:hover { background: rgba(255,255,255,0.08); transform: scale(1.1); }
+/* === NAVBAR DRAWER === */
 
-#bc_drawer .drawer-content {
+/* Иконка лапки в навбаре */
+#bc_drawer_icon {
+    color: var(--SmartThemeBodyColor, #ccc);
+    font-size: 20px;
+    transition: color 0.2s, transform 0.2s;
+}
+#bc_drawer_icon:hover {
+    color: #c88cff;
+    transform: scale(1.1);
+}
+#bc_drawer_icon.openIcon {
+    color: #c88cff;
+}
+
+/* Контент drawer */
+#bc_drawer_content {
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: rgba(255,255,255,0.15) transparent;
+}
+
+/* Шапка drawer */
+#bc_drawer .drawer-header.bc-header {
+    border-bottom: 1px solid var(--SmartThemeBorderColor, #444);
+    background: rgba(0,0,0,0.15);
 }
 
 /* === HEADER === */
