@@ -708,6 +708,7 @@ function initDrawerEvents() {
         renderRelList();
         renderFamilyTree();
     });
+    $d.on('change', '#bc-family-focus', renderFamilyTree);
 
     // === FAMILY: BABIES ===
     $d.on('change', '#bc-baby-parent', renderBabyList);
@@ -732,6 +733,15 @@ function initDrawerEvents() {
             renderBabyList();
             renderFamilyTree();
         });
+    });
+
+    // === COLLAPSIBLE SECTIONS ===
+    $d.on('click', '.bc-section > .bc-section-head, .bc-collapsible-head', function (e) {
+        if ($(e.target).closest('.bc-icon-btn, .bc-btn, .bc-btn-sm, select, input, textarea, button').length) return;
+        const $section = $(this).closest('.bc-section');
+        const $kids = $section.children().not(this);
+        $kids.toggle();
+        $section.toggleClass('bc-section-collapsed');
     });
     $d.on('click', '.bc-baby-del', function () {
         const motherName = $(this).data('mother');

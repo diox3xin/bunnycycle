@@ -151,7 +151,10 @@ async function parseCharacterCards(ctx, charNames) {
                 if (!profile._mR && llmData.race && (!profile.race || profile.race === "human")) profile.race = llmData.race;
                 if (!profile._mE && llmData.eyeColor && !profile.eyeColor) profile.eyeColor = llmData.eyeColor;
                 if (!profile._mH && llmData.hairColor && !profile.hairColor) profile.hairColor = llmData.hairColor;
-                if (llmData.age && !profile.age) profile.age = llmData.age;
+                if (llmData.age && !profile.age) {
+                    profile.age = llmData.age;
+                    if (llmData.age < 12 && profile.cycle) profile.cycle.enabled = false;
+                }
             }
         }
 
@@ -189,7 +192,10 @@ async function parseCharacterCards(ctx, charNames) {
 
         if (!profile.age) {
             const age = guessAge(cardText);
-            if (age) profile.age = age;
+            if (age) {
+                profile.age = age;
+                if (age < 12 && profile.cycle) profile.cycle.enabled = false;
+            }
         }
     }
 }
@@ -250,7 +256,7 @@ function guessRace(text) {
         { pattern: /(?:фея|fairy|фэйри|fae|пикси|pixie)/i, value: 'fairy' },
         { pattern: /(?:дракон|dragon|dragonborn|драконид)/i, value: 'dragon' },
         { pattern: /(?:полурослик|halfling|хоббит|hobbit|gnome)/i, value: 'halfling' },
-        { pattern: /(?:кошко|neko|неко|кемономими|catgirl|catboy|кицунэ|kitsune)/i, value: 'neko' },
+        { pattern: /(?:кошко|neko|неко|кемономими|catgirl|catboy|кицунэ|kitsune|foxgirl|fox boy|wolfgirl|wolf boy)/i, value: 'neko' },
         { pattern: /(?:ангел|angel|серафим|seraph|архангел)/i, value: 'angel' },
         { pattern: /(?:тифлинг|tiefling)/i, value: 'tiefling' },
         { pattern: /(?:русалк|mermaid|сирен|siren)/i, value: 'mermaid' },
@@ -289,6 +295,11 @@ function guessSecondarySex(text) {
     if (/(?:secondary\s+gender|designation|dynamic)\s*[:—–-]?\s*alpha/i.test(lower)) return 'alpha';
     if (/(?:secondary\s+gender|designation|dynamic)\s*[:—–-]?\s*omega/i.test(lower)) return 'omega';
     if (/(?:secondary\s+gender|designation|dynamic)\s*[:—–-]?\s*beta/i.test(lower)) return 'beta';
+    if (/(?:\bo!alpha\b|\bo!omega\b|\bo!beta\b)/i.test(lower)) {
+        if (/o!alpha/i.test(lower)) return 'alpha';
+        if (/o!omega/i.test(lower)) return 'omega';
+        if (/o!beta/i.test(lower)) return 'beta';
+    }
     return null;
 }
 
@@ -298,6 +309,7 @@ function guessAge(text) {
         /(?:возраст|age)\s*[:—–-]?\s*(\d{1,3})/i,
         /(\d{1,3})\s*(?:лет|года|год|years? old)/i,
         /(\d{1,3})\s*(?:y\/o|yo)\b/i,
+        /aged\s*(\d{1,3})/i,
     ];
     for (const re of patterns) {
         const m = text.match(re);

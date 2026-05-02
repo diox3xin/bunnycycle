@@ -95,6 +95,20 @@ export class HealthSystem {
     constructor(profile) {
         this.p = profile;
         this.h = profile.health;
+        if (!this.h.changeLog) this.h.changeLog = [];
+    }
+
+    _logMetricChange(metric, delta, reason) {
+        if (!delta) return;
+        const sign = delta > 0 ? '+' : '';
+        this.h.changeLog.unshift({
+            metric,
+            delta,
+            reason: reason || '',
+            text: `${metric} ${sign}${delta}${reason ? ` (${reason})` : ''}`,
+            ts: new Date().toISOString(),
+        });
+        this.h.changeLog = this.h.changeLog.slice(0, 25);
     }
 
     // === СОСТОЯНИЯ ===
@@ -125,6 +139,7 @@ export class HealthSystem {
 
         this.h.conditions.push(condition);
         this._applyConditionEffects(condition);
+        this._logMetricChange('иммунитет', -5, `болезнь: ${condition.label}`);
         return condition;
     }
 
@@ -187,8 +202,13 @@ export class HealthSystem {
 
         // Влияние на показатели
         const painMap = { mild: 15, moderate: 35, severe: 60 };
-        this.h.pain = clamp(this.h.pain + (painMap[severity] || 20), 0, 100);
-        if (injury.bleeding) this.h.bloodLoss = clamp(this.h.bloodLoss + 20, 0, 100);
+        const painDelta = (painMap[severity] || 20);
+        this.h.pain = clamp(this.h.pain + painDelta, 0, 100);
+        this._logMetricChange('боль', painDelta, injury.label);
+        if (injury.bleeding) {
+            this.h.bloodLoss = clamp(this.h.bloodLoss + 20, 0, 100);
+            this._logMetricChange('кровопотеря', 20, injury.label);
+        }
 
         return injury;
     }
@@ -285,9 +305,12 @@ export class HealthSystem {
         if (cond.severity === 'severe' || cond.severity === 'critical') {
             this.h.energy = clamp(this.h.energy - 20, 0, 100);
             this.h.stress = clamp(this.h.stress + 15, 0, 100);
+            this._logMetricChange('энергия', -20, cond.label);
+            this._logMetricChange('стресс', 15, cond.label);
         }
         if (cond.severity === 'moderate') {
             this.h.energy = clamp(this.h.energy - 10, 0, 100);
+            this._logMetricChange('энергия', -10, cond.label);
         }
         // Снижение иммунитета от болезни
         this.h.immunity = clamp(this.h.immunity - 5, 0, 100);

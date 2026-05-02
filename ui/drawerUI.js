@@ -84,7 +84,7 @@ function renderDashCharCard(name, p) {
         <div class="bc-dash-card">
             <div class="bc-dash-card-head">
                 <span class="bc-dash-name">${escapeHtml(name)}</span>
-                <span class="bc-dash-sex">${p.bioSex === 'M' ? '♂' : '♀'}${p.secondarySex ? '/' + p.secondarySex[0].toUpperCase() : ''}</span>
+                <span class="bc-dash-sex">${p.bioSex === 'M' ? '▣' : p.bioSex === 'F' ? '◯' : '◇'}${p.secondarySex ? '/' + p.secondarySex[0].toUpperCase() : ''}</span>
             </div>
             <div class="bc-dash-badges">${badges}</div>
         </div>
@@ -106,7 +106,7 @@ export function renderCharList() {
         const p = s.characters[name];
         return `
             <div class="bc-char-row">
-                <span class="bc-char-icon">${p.bioSex === 'M' ? '♂' : '♀'}</span>
+                <span class="bc-char-icon">${p.bioSex === 'M' ? '▣' : p.bioSex === 'F' ? '◯' : '◇'}</span>
                 <span class="bc-char-name">${escapeHtml(name)}</span>
                 <span class="bc-char-info">${p.race}${p._isUser ? ' 👤' : ''}</span>
                 <button class="bc-icon-btn bc-edit-char" data-char="${escapeHtml(name)}" title="Редактировать"><i class="fa-solid fa-pen"></i></button>
@@ -128,6 +128,10 @@ export function renderCycle() {
     const p = s.characters[sel.value];
     if (!p) { panel.innerHTML = '<div class="bc-empty">Выберите персонажа</div>'; return; }
     ensureProfileFields(p);
+    if (typeof p.age === 'number' && p.age > 0 && p.age < 12) {
+        panel.innerHTML = '<div class="bc-empty">До пубертата цикл не отображается.</div>';
+        return;
+    }
 
     const ce = new CycleEngine(p);
     const hre = new HeatRutEngine(p);
@@ -315,6 +319,13 @@ export function renderHealth() {
     const hs = new HealthSystem(p);
     const status = hs.overallStatus;
     const mental = hs.mentalStateInfo;
+    const baselineMap = {
+        resilient: 'выносливый',
+        average: 'обычный',
+        sensitive: 'чувствительный',
+        anxious: 'тревожный',
+        athletic: 'спортивный'
+    };
 
     // Показатели
     const barsEl = document.getElementById('bc-health-bars');
@@ -323,7 +334,7 @@ export function renderHealth() {
             <div class="bc-health-status" style="border-color:${status.color}">
                 ${status.emoji} Общее: <strong>${status.label}</strong>
             </div>
-            <div class="bc-stat-row"><span class="bc-stat-label">Профиль</span><span class="bc-stat-value">${escapeHtml(p.health.baselineProfile || 'обычный')}</span></div>
+            <div class="bc-stat-row"><span class="bc-stat-label">Профиль</span><span class="bc-stat-value">${escapeHtml(baselineMap[p.health.baselineProfile] || 'обычный')}</span></div>
             ${renderBar('Иммунитет', p.health.immunity, '#60c060', '🛡️')}
             ${renderBar('Энергия', p.health.energy, '#50a0f0', '⚡')}
             ${renderBar('Стресс', p.health.stress, '#f0c850', '😰')}
@@ -405,13 +416,19 @@ export function renderHealth() {
     // История
     const histEl = document.getElementById('bc-health-history');
     if (histEl) {
-        if (!p.health.history?.length) {
+        const changes = (p.health.changeLog || []).map(h => ({
+            label: h.text,
+            outcome: 'изменение',
+            daysActive: ''
+        }));
+        const combinedHistory = [...changes, ...(p.health.history || []).slice().reverse()];
+        if (!combinedHistory.length) {
             histEl.innerHTML = '<div class="bc-empty">Нет истории</div>';
         } else {
-            histEl.innerHTML = p.health.history.slice(-10).reverse().map(h => `
+            histEl.innerHTML = combinedHistory.slice(0, 10).map(h => `
                 <div class="bc-history-row">
                     <span>${escapeHtml(h.label)}</span>
-                    <span class="bc-cond-day">${h.outcome} (${h.daysActive} дн.)</span>
+                    <span class="bc-cond-day">${h.outcome}${h.daysActive !== '' ? ` (${h.daysActive} дн.)` : ''}</span>
                 </div>
             `).join('');
         }
@@ -759,7 +776,7 @@ export function renderBabyList() {
         return `
             <div class="bc-baby-row">
                 <span class="bc-baby-icon">${bm.ageEmoji}</span>
-                <span class="bc-baby-name">${escapeHtml(b.name || '?')} ${b.sex === 'M' ? '♂' : '♀'}</span>
+                <span class="bc-baby-name">${escapeHtml(b.name || '?')} ${b.sex === 'M' ? '▣' : b.sex === 'F' ? '◯' : '⬡'}</span>
                 <span class="bc-baby-age">${bm.ageLabel}</span>
                 <span class="bc-baby-parents">${escapeHtml(b._motherName)} × ${escapeHtml(b.father)}</span>
                 <span class="bc-baby-weight">${b.currentWeight || b.birthWeight}г</span>
@@ -881,10 +898,11 @@ export function renderFamilyTree() {
     const rels = s.relationships || [];
     const names = Object.keys(chars).filter(n => chars[n]?._enabled);
     const focusSel = document.getElementById('bc-family-focus');
+    const prevFocus = focusSel?.value;
     let focusName = names[0];
     if (focusSel) {
         focusSel.innerHTML = names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
-        focusName = focusSel.value && chars[focusSel.value] ? focusSel.value : names[0];
+        focusName = prevFocus && chars[prevFocus] ? prevFocus : names[0];
         focusSel.value = focusName;
     }
 
@@ -894,7 +912,7 @@ export function renderFamilyTree() {
     }
 
     const p = chars[focusName];
-    const sexIcon = p?.bioSex === 'M' ? '👨' : p?.bioSex === 'F' ? '👩' : '🧑';
+    const sexIcon = p?.bioSex === 'M' ? '▣' : p?.bioSex === 'F' ? '◯' : '◇';
     const partners = rels.filter(r =>
         (r.char1 === focusName || r.char2 === focusName) &&
         /партн|пара|муж|жена|lover|spouse|partner|married/i.test(r.type)
@@ -918,7 +936,7 @@ export function renderFamilyTree() {
             </div>
             <div class="bc-family-col">
                 <div class="bc-section-head"><i class="fa-solid fa-baby"></i> Дети</div>
-                ${children.length ? children.map(c => `<div class="bc-family-pill">${c.sex === 'M' ? '👦' : '👧'} ${escapeHtml(c.name)} <span class="bc-family-dim">от ${escapeHtml(c.father)}</span></div>`).join('') : '<div class="bc-empty">Нет детей</div>'}
+                ${children.length ? children.map(c => `<div class="bc-family-pill">⬡ ${escapeHtml(c.name)} <span class="bc-family-dim">от ${escapeHtml(c.father)}</span></div>`).join('') : '<div class="bc-empty">Нет детей</div>'}
             </div>
             <div class="bc-family-col">
                 <div class="bc-section-head"><i class="fa-solid fa-link"></i> Связи</div>

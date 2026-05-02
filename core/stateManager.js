@@ -217,6 +217,7 @@ function createInitialHealthProfile(name = '', sex = null) {
 export function makeProfile(name, isUser, sex) {
     const isMale = sex === 'M';
     const resolvedSex = sex || null; // null = РїРѕР» РЅРµ РѕРїСЂРµРґРµР»С‘РЅ
+    const initialAge = null;
     return {
         name,
         bioSex: resolvedSex,
@@ -226,7 +227,7 @@ export function makeProfile(name, isUser, sex) {
         contraception: 'none',
         eyeColor: '',
         hairColor: '',
-        age: null,
+        age: initialAge,
         pregnancyDifficulty: 'normal',
         _isUser: isUser,
         _isNPC: false,
@@ -318,6 +319,7 @@ export function ensureProfileFields(p) {
     if (p._pregMaxWeeks === undefined) p._pregMaxWeeks = null;
     if (p._customRace === undefined) p._customRace = "";
     if (p._isNPC === undefined) p._isNPC = false;
+    if (typeof p.age === 'number' && p.age > 0 && p.age < 12 && p.cycle) p.cycle.enabled = false;
     if (!p.health) p.health = createInitialHealthProfile(p.name || '', p.bioSex || null);
     const variedHealth = createInitialHealthProfile(p.name || '', p.bioSex || null);
     if (p.health.immunity === undefined) p.health.immunity = variedHealth.immunity;

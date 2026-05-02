@@ -61,7 +61,7 @@
             <!-- ====== ОБЗОР ====== -->
             <div class="bc-tab-content active" data-tab="dashboard">
                 <div class="bc-section">
-                    <div class="bc-section-head"><i class="fa-solid fa-clock"></i> Дата мира</div>
+                    <div class="bc-section-head bc-collapsible-head"><i class="fa-solid fa-clock"></i> Дата мира</div>
                     <div class="bc-date-display">
                         <span id="bc-world-date">—</span>
                         <button class="bc-icon-btn" id="bc-freeze-toggle" title="Заморозить время"><i class="fa-solid fa-snowflake"></i></button>
@@ -73,13 +73,13 @@
                     </div>
                 </div>
                 <div class="bc-section">
-                    <div class="bc-section-head"><i class="fa-solid fa-users"></i> Персонажи</div>
+                    <div class="bc-section-head bc-collapsible-head"><i class="fa-solid fa-users"></i> Персонажи</div>
                     <div id="bc-dash-chars" class="bc-dash-chars">
                         <div class="bc-empty">Нет персонажей. Откройте чат.</div>
                     </div>
                 </div>
                 <div class="bc-section">
-                    <div class="bc-section-head"><i class="fa-solid fa-dice"></i> Последние броски</div>
+                    <div class="bc-section-head bc-collapsible-head"><i class="fa-solid fa-dice"></i> Последние броски</div>
                     <div id="bc-dash-dice" class="bc-dash-dice bc-scroll">
                         <div class="bc-empty">Нет бросков</div>
                     </div>
@@ -92,7 +92,7 @@
             <!-- ====== ПЕРСОНАЖИ ====== -->
             <div class="bc-tab-content" data-tab="chars">
                 <div class="bc-section">
-                    <div class="bc-section-head">
+                    <div class="bc-section-head bc-collapsible-head">
                         <i class="fa-solid fa-users"></i> Список персонажей
                         <button class="bc-icon-btn" id="bc-add-char" title="Добавить"><i class="fa-solid fa-plus"></i></button>
                         <button class="bc-icon-btn" id="bc-reparse" title="AI-анализ"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
@@ -154,7 +154,7 @@
                 <div id="bc-health-bars" class="bc-health-bars"></div>
                 <!-- Болезни -->
                 <div class="bc-section">
-                    <div class="bc-section-head">
+                    <div class="bc-section-head bc-collapsible-head">
                         <i class="fa-solid fa-virus"></i> Болезни и состояния
                         <button class="bc-icon-btn" id="bc-health-add-cond" title="Добавить"><i class="fa-solid fa-plus"></i></button>
                         <button class="bc-icon-btn" id="bc-health-random-disease" title="Случайная болезнь"><i class="fa-solid fa-shuffle"></i></button>
@@ -163,7 +163,7 @@
                 </div>
                 <!-- Травмы -->
                 <div class="bc-section">
-                    <div class="bc-section-head">
+                    <div class="bc-section-head bc-collapsible-head">
                         <i class="fa-solid fa-bandage"></i> Травмы и ранения
                         <button class="bc-icon-btn" id="bc-health-add-injury" title="Добавить"><i class="fa-solid fa-plus"></i></button>
                         <button class="bc-icon-btn" id="bc-health-random-injury" title="Случайная травма"><i class="fa-solid fa-dice"></i></button>
@@ -180,12 +180,12 @@
                 </div>
                 <!-- Ментальное здоровье -->
                 <div class="bc-section">
-                    <div class="bc-section-head"><i class="fa-solid fa-brain"></i> Ментальное здоровье</div>
+                    <div class="bc-section-head bc-collapsible-head"><i class="fa-solid fa-brain"></i> Ментальное здоровье</div>
                     <div id="bc-health-mental"></div>
                 </div>
                 <!-- История -->
                 <div class="bc-section">
-                    <div class="bc-section-head"><i class="fa-solid fa-clock-rotate-left"></i> История болезней</div>
+                    <div class="bc-section-head bc-collapsible-head"><i class="fa-solid fa-clock-rotate-left"></i> История болезней</div>
                     <div id="bc-health-history" class="bc-scroll"></div>
                 </div>
             </div>
@@ -193,14 +193,14 @@
             <!-- ====== СЕМЬЯ ====== -->
             <div class="bc-tab-content" data-tab="family">
                 <div class="bc-section">
-                    <div class="bc-section-head">
+                    <div class="bc-section-head bc-collapsible-head">
                         <i class="fa-solid fa-heart"></i> Отношения
                         <button class="bc-icon-btn" id="bc-rel-add" title="Добавить"><i class="fa-solid fa-plus"></i></button>
                     </div>
                     <div id="bc-rel-list" class="bc-scroll"></div>
                 </div>
                 <div class="bc-section">
-                    <div class="bc-section-head"><i class="fa-solid fa-baby-carriage"></i> Дети</div>
+                    <div class="bc-section-head bc-collapsible-head"><i class="fa-solid fa-baby-carriage"></i> Дети</div>
                     <div class="bc-row">
                         <select class="bc-select" id="bc-baby-parent"></select>
                         <button class="bc-btn-sm" id="bc-baby-create"><i class="fa-solid fa-plus"></i> Создать</button>
@@ -208,7 +208,7 @@
                     <div id="bc-baby-list" class="bc-scroll"></div>
                 </div>
                 <div class='bc-section'>
-                    <div class='bc-section-head'><i class='fa-solid fa-sitemap'></i> Семейное древо</div>
+                    <div class='bc-section-head bc-collapsible-head'><i class='fa-solid fa-sitemap'></i> Семейное древо</div>
                     <div class='bc-row'>
                         <select class='bc-select' id='bc-family-focus'></select>
                     </div>
