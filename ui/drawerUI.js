@@ -126,11 +126,14 @@ export function renderCycle() {
     if (!sel || !panel) return;
 
     const p = s.characters[sel.value];
-    if (!p || !p.cycle) { panel.innerHTML = '<div class="bc-empty">Выберите персонажа</div>'; return; }
+    if (!p) { panel.innerHTML = '<div class="bc-empty">Выберите персонажа</div>'; return; }
+    ensureProfileFields(p);
 
     const ce = new CycleEngine(p);
     const hre = new HeatRutEngine(p);
-    const cal = ce.getFullCalendar();
+    const isOvCharacter = s.modules.auOverlay && s.auPreset === 'omegaverse' && (p.secondarySex === 'omega' || p.secondarySex === 'alpha');
+    const showRegularCycle = !!p.cycle?.enabled && !(p.bioSex === 'M' && isOvCharacter);
+    const cal = showRegularCycle ? ce.getFullCalendar() : [];
 
     let calHtml = '<div class="bc-calendar">';
     for (const d of cal) {
@@ -139,49 +142,57 @@ export function renderCycle() {
     }
     calHtml += '</div>';
 
+    let secondaryHtml = '';
+    if (p.secondarySex === 'omega') {
+        secondaryHtml = `
+            <div class="bc-section">
+                <div class="bc-section-head"><i class="fa-solid fa-fire"></i> Течка</div>
+                <div class="bc-stat-row"><span class="bc-stat-label">Статус</span><span class="bc-stat-value">${p.heat?.active ? '🔥 Активна' : '💤 Неактивна'}</span></div>
+                <div class="bc-stat-row"><span class="bc-stat-label">Фаза</span><span class="bc-stat-value">${hre.heatLabel}</span></div>
+                <div class="bc-stat-row"><span class="bc-stat-label">Текущий день</span><span class="bc-stat-value">${p.heat?.currentDay || 0}</span></div>
+                <div class="bc-stat-row"><span class="bc-stat-label">Следующая течка</span><span class="bc-stat-value">через ${hre.heatDaysLeft} дн.</span></div>
+                <div class="bc-stat-row"><span class="bc-stat-label">Супрессанты</span><span class="bc-stat-value">${p.heat?.onSuppressants ? '💊 Да' : '—'}</span></div>
+            </div>
+        `;
+    } else if (p.secondarySex === 'alpha') {
+        secondaryHtml = `
+            <div class="bc-section">
+                <div class="bc-section-head"><i class="fa-solid fa-fire-flame-curved"></i> Гон</div>
+                <div class="bc-stat-row"><span class="bc-stat-label">Статус</span><span class="bc-stat-value">${p.rut?.active ? '🔥 Активен' : '💤 Неактивен'}</span></div>
+                <div class="bc-stat-row"><span class="bc-stat-label">Фаза</span><span class="bc-stat-value">${hre.rutLabel}</span></div>
+                <div class="bc-stat-row"><span class="bc-stat-label">Текущий день</span><span class="bc-stat-value">${p.rut?.currentDay || 0}</span></div>
+                <div class="bc-stat-row"><span class="bc-stat-label">Следующий гон</span><span class="bc-stat-value">через ${hre.rutDaysLeft} дн.</span></div>
+            </div>
+        `;
+    }
+
+    const cycleHtml = showRegularCycle ? `
+        <div class="bc-section">
+            <div class="bc-section-head"><i class="fa-solid fa-circle-notch"></i> Обычный цикл</div>
+            <div class="bc-cycle-info">
+                <div class="bc-stat-row"><span class="bc-stat-label">Фаза</span><span class="bc-stat-value" style="color:${ce.phaseColor}">${ce.phaseEmoji} ${ce.phaseLabel}</span></div>
+                <div class="bc-stat-row"><span class="bc-stat-label">День</span><span class="bc-stat-value">${ce.c.currentDay} / ${ce.c.length}</span></div>
+                <div class="bc-stat-row"><span class="bc-stat-label">Фертильность</span><span class="bc-stat-value">${Math.round(ce.fertility * 100)}% (${ce.fertilityLevel})</span></div>
+                <div class="bc-stat-row"><span class="bc-stat-label">Либидо</span><span class="bc-stat-value">${ce.libido}</span></div>
+                <div class="bc-stat-row"><span class="bc-stat-label">Овуляция через</span><span class="bc-stat-value">${ce.daysToOvulation} дн.</span></div>
+                <div class="bc-stat-row"><span class="bc-stat-label">Менструация через</span><span class="bc-stat-value">${ce.daysToMenstruation} дн.</span></div>
+                <div class="bc-stat-row"><span class="bc-stat-label">Симптомы</span><span class="bc-stat-value">${ce.symptoms.join(', ') || '—'}</span></div>
+                <div class="bc-stat-row"><span class="bc-stat-label">Выделения</span><span class="bc-stat-value">${ce.discharge}</span></div>
+            </div>
+            <div class="bc-section-head" style="margin-top:10px">Календарь цикла</div>
+            ${calHtml}
+            <div class="bc-btn-group" style="margin-top:10px">
+                <button class="bc-btn-sm bc-cyc-set-phase" data-phase="menstruation">🔴 Менс.</button>
+                <button class="bc-btn-sm bc-cyc-set-phase" data-phase="follicular">🌸 Фолл.</button>
+                <button class="bc-btn-sm bc-cyc-set-phase" data-phase="ovulation">🥚 Овул.</button>
+                <button class="bc-btn-sm bc-cyc-set-phase" data-phase="luteal">🌙 Лют.</button>
+            </div>
+        </div>
+    ` : '';
+
     panel.innerHTML = `
-        <div class="bc-cycle-info">
-            <div class="bc-stat-row">
-                <span class="bc-stat-label">Фаза</span>
-                <span class="bc-stat-value" style="color:${ce.phaseColor}">${ce.phaseEmoji} ${ce.phaseLabel}</span>
-            </div>
-            <div class="bc-stat-row">
-                <span class="bc-stat-label">День</span>
-                <span class="bc-stat-value">${ce.c.currentDay} / ${ce.c.length}</span>
-            </div>
-            <div class="bc-stat-row">
-                <span class="bc-stat-label">Фертильность</span>
-                <span class="bc-stat-value">${Math.round(ce.fertility * 100)}% (${ce.fertilityLevel})</span>
-            </div>
-            <div class="bc-stat-row">
-                <span class="bc-stat-label">Либидо</span>
-                <span class="bc-stat-value">${ce.libido}</span>
-            </div>
-            <div class="bc-stat-row">
-                <span class="bc-stat-label">Овуляция через</span>
-                <span class="bc-stat-value">${ce.daysToOvulation} дн.</span>
-            </div>
-            <div class="bc-stat-row">
-                <span class="bc-stat-label">Менструация через</span>
-                <span class="bc-stat-value">${ce.daysToMenstruation} дн.</span>
-            </div>
-            <div class="bc-stat-row">
-                <span class="bc-stat-label">Симптомы</span>
-                <span class="bc-stat-value">${ce.symptoms.join(', ') || '—'}</span>
-            </div>
-            <div class="bc-stat-row">
-                <span class="bc-stat-label">Выделения</span>
-                <span class="bc-stat-value">${ce.discharge}</span>
-            </div>
-        </div>
-        <div class="bc-section-head" style="margin-top:8px">Календарь цикла</div>
-        ${calHtml}
-        <div class="bc-btn-group" style="margin-top:8px">
-            <button class="bc-btn-sm bc-cyc-set-phase" data-phase="menstruation">🔴 Менс.</button>
-            <button class="bc-btn-sm bc-cyc-set-phase" data-phase="follicular">🌸 Фолл.</button>
-            <button class="bc-btn-sm bc-cyc-set-phase" data-phase="ovulation">🥚 Овул.</button>
-            <button class="bc-btn-sm bc-cyc-set-phase" data-phase="luteal">🌙 Лют.</button>
-        </div>
+        ${cycleHtml}
+        ${secondaryHtml || (!showRegularCycle ? '<div class="bc-empty">Для этого персонажа нет активного обычного цикла. В омегаверсе здесь будет отображаться heat/rut.</div>' : '')}
     `;
 }
 
@@ -312,6 +323,7 @@ export function renderHealth() {
             <div class="bc-health-status" style="border-color:${status.color}">
                 ${status.emoji} Общее: <strong>${status.label}</strong>
             </div>
+            <div class="bc-stat-row"><span class="bc-stat-label">Профиль</span><span class="bc-stat-value">${escapeHtml(p.health.baselineProfile || 'обычный')}</span></div>
             ${renderBar('Иммунитет', p.health.immunity, '#60c060', '🛡️')}
             ${renderBar('Энергия', p.health.energy, '#50a0f0', '⚡')}
             ${renderBar('Стресс', p.health.stress, '#f0c850', '😰')}
@@ -867,7 +879,7 @@ export function renderFamilyTree() {
     const s = getSettings();
     const chars = s.characters || {};
     const rels = s.relationships || [];
-    const names = Object.keys(chars);
+    const names = Object.keys(chars).filter(n => chars[n]?._enabled);
     const focusSel = document.getElementById('bc-family-focus');
     let focusName = names[0];
     if (focusSel) {
@@ -881,65 +893,39 @@ export function renderFamilyTree() {
         return;
     }
 
-    // Собираем все связи
-    let html = '<div class="bc-ftree">';
+    const p = chars[focusName];
+    const sexIcon = p?.bioSex === 'M' ? '👨' : p?.bioSex === 'F' ? '👩' : '🧑';
+    const partners = rels.filter(r =>
+        (r.char1 === focusName || r.char2 === focusName) &&
+        /партн|пара|муж|жена|lover|spouse|partner|married/i.test(r.type)
+    ).map(r => r.char1 === focusName ? r.char2 : r.char1);
+    const allRels = rels.filter(r => r.char1 === focusName || r.char2 === focusName);
+    const otherRels = allRels.filter(r => !partners.includes(r.char1 === focusName ? r.char2 : r.char1));
+    const children = (p?.babies || []).map(b => ({ name: b.name || '?', sex: b.sex, father: b.father || '?' }));
 
-    for (const name of [focusName]) {
-        const p = chars[name];
-        if (!p?._enabled) continue;
-        const sexIcon = p.bioSex === 'M' ? '👨' : p.bioSex === 'F' ? '👩' : '🧑';
-        const secLabel = p.secondarySex ? ` (${p.secondarySex})` : '';
-
-        // Находим партнёров
-        const partners = rels.filter(r => 
-            (r.char1 === name || r.char2 === name) && 
-            /партн|пара|муж|жена|lover|spouse|partner|married/i.test(r.type)
-        ).map(r => r.char1 === name ? r.char2 : r.char1);
-
-        // Находим детей
-        const children = (p.babies || []).map(b => ({
-            name: b.name || '?', sex: b.sex, father: b.father
-        }));
-
-        // Находим все отношения
-        const charRels = rels.filter(r => r.char1 === name || r.char2 === name);
-
-        html += `<div class="bc-ftree-card">`;
-        html += `<div class="bc-ftree-avatar">${sexIcon}</div>`;
-        html += `<div class="bc-ftree-info">`;
-        html += `<div class="bc-ftree-name">${escapeHtml(name)}${secLabel}</div>`;
-        html += `<div class="bc-ftree-race">${p.race || 'человек'}${p.age ? ', ' + p.age + ' лет' : ''}</div>`;
-        
-        // Партнёры
-        if (partners.length) {
-            html += `<div class="bc-ftree-rel">💕 ${partners.map(pn => `<span class="bc-ftree-link">${escapeHtml(pn)}</span>`).join(', ')}</div>`;
-        }
-
-        // Другие отношения
-        const otherRels = charRels.filter(r => !partners.includes(r.char1 === name ? r.char2 : r.char1));
-        if (otherRels.length) {
-            for (const r of otherRels) {
-                const other = r.char1 === name ? r.char2 : r.char1;
-                html += `<div class="bc-ftree-rel"><span class="bc-ftree-reltype">${escapeHtml(r.type)}</span> → <span class="bc-ftree-link">${escapeHtml(other)}</span></div>`;
-            }
-        }
-
-        // Дети
-        if (children.length) {
-            html += `<div class="bc-ftree-children">`;
-            html += `<div class="bc-ftree-children-label">👶 Дети:</div>`;
-            for (const c of children) {
-                const cIcon = c.sex === 'M' ? '👦' : '👧';
-                html += `<div class="bc-ftree-child">${cIcon} ${escapeHtml(c.name)} <span class="bc-ftree-dim">(от ${escapeHtml(c.father || '?')})</span></div>`;
-            }
-            html += `</div>`;
-        }
-
-        html += `</div></div>`;
-    }
-
-    html += '</div>';
-    el.innerHTML = html;
+    el.innerHTML = `
+        <div class="bc-family-focus-card">
+            <div class="bc-family-focus-avatar">${sexIcon}</div>
+            <div>
+                <div class="bc-family-focus-name">${escapeHtml(focusName)}</div>
+                <div class="bc-family-focus-meta">${escapeHtml(p?.race || 'человек')}${p?.age ? ' · ' + p.age + ' лет' : ''}${p?.secondarySex ? ' · ' + escapeHtml(p.secondarySex) : ''}</div>
+            </div>
+        </div>
+        <div class="bc-family-grid">
+            <div class="bc-family-col">
+                <div class="bc-section-head"><i class="fa-solid fa-heart"></i> Партнёры</div>
+                ${partners.length ? partners.map(name => `<div class="bc-family-pill">💕 ${escapeHtml(name)}</div>`).join('') : '<div class="bc-empty">Нет партнёров</div>'}
+            </div>
+            <div class="bc-family-col">
+                <div class="bc-section-head"><i class="fa-solid fa-baby"></i> Дети</div>
+                ${children.length ? children.map(c => `<div class="bc-family-pill">${c.sex === 'M' ? '👦' : '👧'} ${escapeHtml(c.name)} <span class="bc-family-dim">от ${escapeHtml(c.father)}</span></div>`).join('') : '<div class="bc-empty">Нет детей</div>'}
+            </div>
+            <div class="bc-family-col">
+                <div class="bc-section-head"><i class="fa-solid fa-link"></i> Связи</div>
+                ${otherRels.length ? otherRels.map(r => { const other = r.char1 === focusName ? r.char2 : r.char1; return `<div class="bc-family-pill"><span class="bc-family-reltype">${escapeHtml(r.type)}</span> ${escapeHtml(other)}</div>`; }).join('') : '<div class="bc-empty">Нет дополнительных связей</div>'}
+            </div>
+        </div>
+    `;
 }
 
 // ========================

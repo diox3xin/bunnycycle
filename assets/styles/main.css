@@ -200,6 +200,30 @@
 .bc-dash-chars, .bc-dash-dice, .bc-char-list, #bc-cycle-panel, #bc-preg-panel, #bc-health-panel, #bc-family-tree, #bc-rel-list, #bc-baby-list { display: grid; gap: 10px; }
 .bc-editor { margin-top: 14px; padding: 18px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.035); }
 .bc-date-display, .bc-date-controls { flex-wrap: wrap; }
+.bc-dash-card { padding: 14px 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.04); }
+.bc-dash-card-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
+.bc-dash-name { font-size: 14px; font-weight: 700; color: #f1ddff; }
+.bc-dash-sex { font-size: 12px; color: rgba(255,255,255,0.55); }
+.bc-dash-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.bc-badge { display: inline-flex; align-items: center; padding: 5px 9px; border-radius: 999px; font-size: 11px; background: rgba(255,255,255,0.07); color: #f2e3ff; }
+.bc-badge-health, .bc-badge-danger { background: rgba(255,109,142,0.16); color: #ffd2dc; }
+.bc-dice-entry, .bc-char-row, .bc-condition-row, .bc-history-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 14px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.03); }
+.bc-dice-entry.bc-success { border-color: rgba(98,220,160,0.18); }
+.bc-dice-entry.bc-fail { border-color: rgba(255,201,112,0.14); }
+.bc-dice-icon, .bc-char-icon { font-size: 18px; }
+.bc-dice-ts, .bc-char-info, .bc-cond-day, .bc-cond-note { font-size: 11px; color: rgba(255,255,255,0.48); }
+.bc-char-name, .bc-cond-label { font-weight: 700; color: #f1ddff; }
+.bc-calendar { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.bc-cal-day { display: grid; place-items: center; min-height: 42px; border-radius: 14px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.05); font-size: 12px; }
+.bc-cal-menstruation { background: rgba(255,109,142,0.14); }
+.bc-cal-follicular { background: rgba(102,170,255,0.12); }
+.bc-cal-ovulation { background: rgba(255,201,112,0.16); }
+.bc-cal-luteal { background: rgba(169,112,255,0.14); }
+.bc-cal-today { box-shadow: 0 0 0 2px rgba(255,255,255,0.14) inset; }
+.bc-preg-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.bc-preg-emoji { font-size: 26px; }
+.bc-preg-title { font-size: 16px; font-weight: 800; color: #f3deff; }
+.bc-preg-weeks { margin-left: auto; font-size: 12px; color: rgba(255,255,255,0.56); }
 @media (max-width: 900px) { .bc-tabs { grid-template-columns: repeat(2, minmax(0,1fr)); } .bc-tab { min-height: 52px; } .bc-tab-contents { padding: 16px; } }
 
 /* === PROGRESS BAR === */
@@ -220,118 +244,35 @@
 /* === HEALTH BARS === */
 .bc-health-bars { margin-bottom: 10px; }
 .bc-health-status {
-    padding: 6px 10px; border-radius: 6px; font-size: 13px;
-    border-left: 3px solid; margin-bottom: 8px;
-    background: rgba(0,0,0,0.15);
+    padding: 10px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    border-left: 3px solid;
+    margin-bottom: 10px;
+    background: rgba(255,255,255,0.035);
 }
-.bc-bar-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.bc-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .bc-bar-label { font-size: 11px; width: 95px; white-space: nowrap; }
 .bc-bar-track {
-    flex: 1; height: 8px; border-radius: 4px;
-    background: rgba(255,255,255,0.08); overflow: hidden;
+    flex: 1;
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.08);
+    overflow: hidden;
 }
 .bc-bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s; }
 .bc-bar-value { font-size: 11px; width: 35px; text-align: right; }
 .bc-mental-status {
-    padding: 6px 10px; border-radius: 6px; font-size: 12px;
-    border-left: 3px solid; background: rgba(0,0,0,0.1);
-}
-
-/* === CONDITION / INJURY ROWS === */
-.bc-condition-row {
-    display: flex; align-items: center; gap: 6px;
-    padding: 4px 6px; font-size: 11px; border-radius: 4px;
-    background: rgba(0,0,0,0.1); margin-bottom: 3px;
-}
-.bc-cond-sev { font-size: 12px; }
-.bc-cond-label { flex: 1; font-weight: 500; }
-.bc-cond-day { font-size: 10px; color: rgba(255,255,255,0.4); }
-.bc-cond-note { font-size: 10px; color: rgba(255,255,255,0.3); font-style: italic; }
-.bc-history-row {
-    display: flex; justify-content: space-between; font-size: 11px;
-    padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
-}
-
-/* === BADGES === */
-.bc-badge {
-    display: inline-flex; align-items: center; padding: 2px 6px;
-    border-radius: 10px; font-size: 10px; font-weight: 500;
-    background: rgba(255,255,255,0.1); gap: 2px; white-space: nowrap;
-}
-.bc-badge-preg { background: rgba(200,140,255,0.25); color: #e0c0ff; }
-.bc-badge-labor { background: rgba(224,64,80,0.25); color: #f08090; }
-.bc-badge-heat { background: rgba(240,100,0,0.25); color: #f0a060; }
-.bc-badge-health { color: #fff; }
-.bc-badge-danger { background: rgba(224,64,80,0.35); color: #f08090; }
-
-/* === DASH CARDS === */
-.bc-dash-chars { display: flex; flex-direction: column; gap: 4px; }
-.bc-dash-card {
-    padding: 8px 10px; border-radius: 6px;
-    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
-}
-.bc-dash-card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-.bc-dash-name { font-weight: 600; font-size: 13px; }
-.bc-dash-sex { font-size: 14px; }
-.bc-dash-badges { display: flex; flex-wrap: wrap; gap: 4px; }
-
-/* === CHAR LIST === */
-.bc-char-row {
-    display: flex; align-items: center; gap: 6px;
-    padding: 6px 8px; border-radius: 6px;
-    background: rgba(255,255,255,0.03); margin-bottom: 3px;
-}
-.bc-char-icon { font-size: 16px; }
-.bc-char-name { flex: 1; font-weight: 500; font-size: 13px; }
-.bc-char-info { font-size: 10px; color: rgba(255,255,255,0.4); }
-
-/* === CALENDAR === */
-.bc-calendar { display: flex; flex-wrap: wrap; gap: 3px; margin: 6px 0; }
-.bc-cal-day {
-    width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
-    border-radius: 6px; font-size: 10px; font-weight: 500;
-    background: rgba(255,255,255,0.04); transition: all 0.2s;
-}
-.bc-cal-mens { background: rgba(255,100,120,0.2); color: #ff8090; }
-.bc-cal-foll { background: rgba(200,140,255,0.15); color: #d0a0ff; }
-.bc-cal-ovul { background: rgba(100,220,140,0.2); color: #80f0a0; }
-.bc-cal-lut { background: rgba(240,200,80,0.15); color: #f0d060; }
-.bc-cal-today {
-    outline: 2px solid #c88cff; outline-offset: -1px;
-    font-weight: 700; transform: scale(1.1);
-}
-
-/* === PREG HEADER === */
-.bc-preg-header {
-    display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
-}
-.bc-preg-emoji { font-size: 28px; }
-.bc-preg-title { font-size: 14px; font-weight: 600; }
-.bc-preg-weeks { font-size: 12px; color: rgba(255,255,255,0.5); margin-left: auto; }
-.bc-info-text { font-size: 11px; color: rgba(255,255,255,0.5); line-height: 1.4; margin: 6px 0; }
-
-/* === DICE === */
-.bc-dash-dice { max-height: 150px; overflow-y: auto; }
-.bc-dice-entry {
-    display: flex; align-items: center; gap: 6px;
-    padding: 4px 8px; border-radius: 4px; font-size: 11px; margin-bottom: 2px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 12px 14px;
+    border-radius: 18px;
+    border-left: 3px solid;
     background: rgba(255,255,255,0.03);
 }
-.bc-dice-entry.bc-success { background: rgba(100,220,140,0.1); border-left: 2px solid #64dc8c; }
-.bc-dice-entry.bc-fail { border-left: 2px solid rgba(255,255,255,0.1); }
-.bc-dice-icon { font-size: 14px; }
-.bc-dice-ts { font-size: 9px; color: rgba(255,255,255,0.3); margin-left: auto; }
-
-.bc-dice-result { text-align: center; padding: 20px; }
-.bc-dice-big { font-size: 48px; margin-bottom: 8px; }
-.bc-dice-roll { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
-.bc-dice-outcome { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
-.bc-dice-success .bc-dice-outcome { color: #64dc8c; }
-.bc-dice-miss .bc-dice-outcome { color: rgba(255,255,255,0.4); }
-.bc-dice-detail { font-size: 12px; color: rgba(255,255,255,0.5); }
-
-/* === EMPTY === */
-.bc-empty { font-size: 12px; color: rgba(255,255,255,0.3); text-align: center; padding: 12px; }
+.bc-cond-sev { font-size: 15px; }
 
 /* === SCROLL === */
 .bc-scroll { max-height: 180px; overflow-y: auto; scrollbar-width: thin; }
@@ -374,8 +315,9 @@
 /* === ОТНОШЕНИЯ === */
 .bc-rel-row {
     display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-    padding: 6px 8px; border-radius: 6px;
-    background: rgba(255,255,255,0.03); margin-bottom: 4px;
+    padding: 12px 14px; border-radius: 18px;
+    background: rgba(255,255,255,0.03); margin-bottom: 6px;
+    border: 1px solid rgba(255,255,255,0.05);
     font-size: 12px;
 }
 .bc-rel-pair { font-weight: 600; color: #e0c0ff; }
@@ -389,8 +331,9 @@
 /* === ДЕТИ === */
 .bc-baby-row {
     display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-    padding: 6px 8px; border-radius: 6px;
-    background: rgba(255,255,255,0.03); margin-bottom: 4px;
+    padding: 12px 14px; border-radius: 18px;
+    background: rgba(255,255,255,0.03); margin-bottom: 6px;
+    border: 1px solid rgba(255,255,255,0.05);
     font-size: 12px;
 }
 .bc-baby-icon { font-size: 16px; }
@@ -402,13 +345,13 @@
 
 
 
-.bc-family-focus-card { display:flex; gap:12px; align-items:center; padding:12px; border-radius:12px; background:rgba(200,140,255,0.08); border:1px solid rgba(200,140,255,0.18); margin-bottom:10px; }
+.bc-family-focus-card { display:flex; gap:12px; align-items:center; padding:16px; border-radius:18px; background:rgba(200,140,255,0.08); border:1px solid rgba(200,140,255,0.18); margin-bottom:12px; }
 .bc-family-focus-avatar { font-size:34px; }
 .bc-family-focus-name { font-size:16px; font-weight:700; color:#f0d0ff; }
 .bc-family-focus-meta { font-size:12px; color:rgba(255,255,255,0.55); margin-top:2px; }
 .bc-family-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; }
-.bc-family-col { padding:10px; border-radius:10px; background:rgba(255,255,255,0.04); }
-.bc-family-pill { padding:8px 10px; border-radius:8px; background:rgba(255,255,255,0.05); margin-bottom:6px; font-size:13px; }
+.bc-family-col { padding:12px; border-radius:18px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.05); }
+.bc-family-pill { padding:8px 10px; border-radius:10px; background:rgba(255,255,255,0.05); margin-bottom:6px; font-size:13px; }
 .bc-family-reltype { color:#d0a0ff; font-weight:700; margin-right:6px; }
 .bc-family-dim { font-size:11px; color:rgba(255,255,255,0.45); }
 

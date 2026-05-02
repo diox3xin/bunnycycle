@@ -138,10 +138,10 @@ async function parseCharacterCards(ctx, charNames) {
             (!profile.race || profile.race === "human")
         ].filter(Boolean).length;
 
-        if (missingFieldCount >= 3 && cardText.length > 120) {
+        if (s.useLLMParsing && missingFieldCount >= 2 && cardText.length > 80) {
             const llmData = await extractCharacterInfoWithLLM(name, cardText);
             if (llmData) {
-                if (!profile._mB && llmData.bioSex && !profile.bioSex) {
+                if (!profile._mB && llmData.bioSex && (!profile.bioSex || profile._sexConfidence < 3)) {
                     profile.bioSex = llmData.bioSex;
                     profile._sexSource = "llm_card";
                     profile._sexConfidence = 3;
@@ -200,6 +200,13 @@ async function parseCharacterCards(ctx, charNames) {
 function guessSex(text, name) {
     const lower = text.toLowerCase();
 
+    if (/(?:female\s+omega|omega\s+female|женщина-омега|девушка-омега)/i.test(text)) {
+        return { value: 'F', confidence: 3, source: 'abo-card' };
+    }
+    if (/(?:male\s+omega|omega\s+male|male\s+alpha|alpha\s+male|мужчина-омега|парень-омега|мужчина-альфа|парень-альфа)/i.test(text)) {
+        return { value: 'M', confidence: 3, source: 'abo-card' };
+    }
+
     // Прямые указания (высокая уверенность)
     // Мужские — без \b для кириллицы!
     const maleStrong = /(?:мужчина|парень|мужской|мальчик|юноша|принц|король|лорд|\bmale\b|\bboy\b|\bman\b|\blord\b|\bprince\b|\bking\b|\bhe is\b)/i;
@@ -256,21 +263,19 @@ function guessRace(text) {
 }
 
 function guessColor(text, target) {
+    const targetWord = target === 'глаз' ? '(?:глаз(?:а)?|eye(?:s)?)' : '(?:волос(?:ы)?|hair)';
+    const colorWord = '(?:черн(?:ые|ый|ая|ое)?|black|бел(?:ые|ый|ая|ое)?|white|голуб(?:ые|ой|ая)?|blue|син(?:ие|ий|яя)?|green|зел[её]н(?:ые|ый|ая)?|кар(?:ие|ий|яя)?|brown|amber|янтарн(?:ые|ый|ая)?|gray|grey|сер(?:ые|ый|ая)?|silver|серебрист(?:ые|ый|ая)?|blond|blonde|блонд(?:ин|инка)?|светл(?:ые|ый|ая)?|рус(?:ые|ый|ая)?|рыж(?:ие|ий|ая)?|red|красн(?:ые|ый|ая)?|pink|розов(?:ые|ый|ая)?|purple|фиолетов(?:ые|ый|ая)?|gold(?:en)?|золотист(?:ые|ый|ая)?)';
     const patterns = [
-        new RegExp(`(\\S+)\\s+${target}`, 'i'),
-        new RegExp(`${target}\\s*[:—–-]\\s*(\\S+)`, 'i'),
-        new RegExp(`цвет\\s+${target}\\s*[:—–-]\\s*([^,\\.\\n]+)`, 'i'),
-        new RegExp(`${target === 'глаз' ? '(?:eyes?|глаз)' : '(?:hair|волос)'}\\s*[:—–-]\\s*([^,\\.\\n]+)`, 'i'),
-        new RegExp(`(\\S+)\\s+${target === 'глаз' ? 'eyes?' : 'hair'}`, 'i'),
-        new RegExp(`${target === 'глаз' ? 'eye' : 'hair'}\\s*color\\s*[:—–-]\\s*([^,\\.\\n]+)`, 'i'),
-        new RegExp(`с\\s+(\\S+(?:ми|ыми|ими))\\s+${target}`, 'i'),
+        new RegExp(`(${colorWord}(?:\\s+${colorWord})?)\\s+${targetWord}`, 'i'),
+        new RegExp(`${targetWord}[^\\n\\.,;]{0,24}?(${colorWord}(?:\\s+${colorWord})?)`, 'i'),
+        new RegExp(`${targetWord}\\s*[:—–-]\\s*([^,\\.\\n]+)`, 'i'),
+        new RegExp(`цвет\\s+${targetWord}\\s*[:—–-]\\s*([^,\\.\\n]+)`, 'i'),
     ];
     for (const re of patterns) {
         const match = text.match(re);
         if (match) {
-            const val = (match[1] || '').trim();
-            // Фильтруем мусор
-            if (val && val.length > 1 && val.length < 30 && !/^[(\[{<]/.test(val)) return val;
+            const val = (match[1] || '').trim().replace(/["'`]/g, '');
+            if (val && val.length > 1 && val.length < 30 && !/^[(\[{<]/.test(val)) return val.split(/\s+/).slice(0, 2).join(' ');
         }
     }
     return null;
@@ -281,6 +286,9 @@ function guessSecondarySex(text) {
     if (/(?:альфа|alpha|a\/b\/o\s*alpha)/i.test(lower)) return 'alpha';
     if (/(?:омега|omega|a\/b\/o\s*omega)/i.test(lower)) return 'omega';
     if (/(?:бета|beta|a\/b\/o\s*beta)/i.test(lower)) return 'beta';
+    if (/(?:secondary\s+gender|designation|dynamic)\s*[:—–-]?\s*alpha/i.test(lower)) return 'alpha';
+    if (/(?:secondary\s+gender|designation|dynamic)\s*[:—–-]?\s*omega/i.test(lower)) return 'omega';
+    if (/(?:secondary\s+gender|designation|dynamic)\s*[:—–-]?\s*beta/i.test(lower)) return 'beta';
     return null;
 }
 
@@ -289,6 +297,7 @@ function guessAge(text) {
     const patterns = [
         /(?:возраст|age)\s*[:—–-]?\s*(\d{1,3})/i,
         /(\d{1,3})\s*(?:лет|года|год|years? old)/i,
+        /(\d{1,3})\s*(?:y\/o|yo)\b/i,
     ];
     for (const re of patterns) {
         const m = text.match(re);
@@ -302,7 +311,7 @@ function guessAge(text) {
 
 async function extractCharacterInfoWithLLM(name, cardText) {
     try {
-        const systemPrompt = 'Extract structured character profile data from a roleplay card. Return ONLY valid JSON.';
+        const systemPrompt = 'Extract structured roleplay character profile data. Return ONLY valid JSON and infer values only when strongly supported by the card.';
         const userPrompt = `Character name: ${name}\n\nExtract these fields if they are explicitly stated or strongly implied:\n- bioSex: M/F/null\n- secondarySex: alpha/beta/omega/null\n- race: one short word in english lowercase or null\n- age: number or null\n- eyeColor: short string or null\n- hairColor: short string or null\n\nReturn JSON exactly like:\n{"bioSex":null,"secondarySex":null,"race":null,"age":null,"eyeColor":null,"hairColor":null}\n\nCard:\n${cardText}`;
         const response = await LLM.call(systemPrompt, userPrompt);
         const data = LLM.parseJSON(response);

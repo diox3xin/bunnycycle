@@ -150,6 +150,67 @@ export function resetSettings() {
     saveSettingsDebounced();
 }
 
+function clampNum(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+}
+
+function hashSeed(str = '') {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) {
+        h = ((h << 5) - h) + str.charCodeAt(i);
+        h |= 0;
+    }
+    return Math.abs(h);
+}
+
+function seededRange(seed, salt, min, max) {
+    const h = hashSeed(`${seed}:${salt}`);
+    return min + (h % (max - min + 1));
+}
+
+function createInitialHealthProfile(name = '', sex = null) {
+    const seed = `${name}|${sex || 'U'}`;
+    const archetypes = ['resilient', 'average', 'sensitive', 'anxious', 'athletic'];
+    const baselineProfile = archetypes[seededRange(seed, 'arch', 0, archetypes.length - 1)];
+
+    let immunity = seededRange(seed, 'imm', 58, 88);
+    let stress = seededRange(seed, 'stress', 8, 42);
+    let energy = seededRange(seed, 'energy', 52, 96);
+    let pain = seededRange(seed, 'pain', 0, 7);
+    let mentalState = ['stable', 'stable', 'stable', 'anxious', 'euphoric', 'numb'][seededRange(seed, 'mind', 0, 5)];
+
+    if (baselineProfile === 'resilient') {
+        immunity += 8; energy += 5; stress -= 6;
+    } else if (baselineProfile === 'sensitive') {
+        immunity -= 7; stress += 8; energy -= 5;
+    } else if (baselineProfile === 'anxious') {
+        stress += 14; energy -= 6; mentalState = 'anxious';
+    } else if (baselineProfile === 'athletic') {
+        energy += 10; immunity += 4; stress -= 4;
+    }
+
+    if (sex === 'F') immunity += 2;
+    if (sex === 'M') energy += 3;
+
+    return {
+        conditions: [],
+        immunity: clampNum(immunity, 35, 98),
+        stress: clampNum(stress, 0, 95),
+        energy: clampNum(energy, 20, 100),
+        pain: clampNum(pain, 0, 15),
+        bloodLoss: 0,
+        mentalState,
+        allergies: [],
+        chronicConditions: [],
+        injuries: [],
+        medications: [],
+        lastCheckup: null,
+        history: [],
+        baselineProfile,
+        _baselineVaried: true,
+    };
+}
+
 // ========================
 // Р¤РђР‘Р РРљРђ РџР РћР¤РР›Р•Р™ РџР•Р РЎРћРќРђР–Р•Р™
 // ========================
@@ -223,21 +284,7 @@ export function makeProfile(name, isUser, sex) {
         babies: [],
 
         // Р—РґРѕСЂРѕРІСЊРµ (РјР°СЃС€С‚Р°Р±РЅР°СЏ СЃРёСЃС‚РµРјР°)
-        health: {
-            conditions: [],       // РђРєС‚РёРІРЅС‹Рµ СЃРѕСЃС‚РѕСЏРЅРёСЏ [{id, type, label, severity, day, maxDays, note, effects, treatable}]
-            immunity: 70,         // 0-100 РёРјРјСѓРЅРёС‚РµС‚
-            stress: 20,           // 0-100 СЃС‚СЂРµСЃСЃ
-            energy: 80,           // 0-100 СЌРЅРµСЂРіРёСЏ
-            pain: 0,              // 0-100 Р±РѕР»СЊ
-            bloodLoss: 0,         // 0-100 РєСЂРѕРІРѕРїРѕС‚РµСЂСЏ
-            mentalState: 'stable', // stable, anxious, depressed, euphoric, traumatized, numb
-            allergies: [],        // Р°Р»Р»РµСЂРіРёРё
-            chronicConditions: [], // С…СЂРѕРЅРёС‡РµСЃРєРёРµ Р±РѕР»РµР·РЅРё
-            injuries: [],         // С‚СЂР°РІРјС‹ [{id, type, location, severity, day, healDays, scarring}]
-            medications: [],      // Р»РµРєР°СЂСЃС‚РІР° [{id, name, effect, daysLeft, sideEffects}]
-            lastCheckup: null,    // РґР°С‚Р° РїРѕСЃР»РµРґРЅРµРіРѕ РѕСЃРјРѕС‚СЂР°
-            history: []           // РёСЃС‚РѕСЂРёСЏ Р±РѕР»РµР·РЅРµР№ [{label, resolvedDate, outcome}]
-        },
+        health: createInitialHealthProfile(name, resolvedSex),
 
         // Р­РјРѕС†РёРё (РґР»СЏ РІРёРґР¶РµС‚Р°)
         mood: {
@@ -271,17 +318,27 @@ export function ensureProfileFields(p) {
     if (p._pregMaxWeeks === undefined) p._pregMaxWeeks = null;
     if (p._customRace === undefined) p._customRace = "";
     if (p._isNPC === undefined) p._isNPC = false;
-    if (!p.health) p.health = makeProfile('', false, 'F').health;
-    if (p.health.immunity === undefined) p.health.immunity = 70;
-    if (p.health.stress === undefined) p.health.stress = 20;
-    if (p.health.energy === undefined) p.health.energy = 80;
-    if (p.health.pain === undefined) p.health.pain = 0;
+    if (!p.health) p.health = createInitialHealthProfile(p.name || '', p.bioSex || null);
+    const variedHealth = createInitialHealthProfile(p.name || '', p.bioSex || null);
+    if (p.health.immunity === undefined) p.health.immunity = variedHealth.immunity;
+    if (p.health.stress === undefined) p.health.stress = variedHealth.stress;
+    if (p.health.energy === undefined) p.health.energy = variedHealth.energy;
+    if (p.health.pain === undefined) p.health.pain = variedHealth.pain;
     if (p.health.bloodLoss === undefined) p.health.bloodLoss = 0;
-    if (!p.health.mentalState) p.health.mentalState = 'stable';
+    if (!p.health.mentalState) p.health.mentalState = variedHealth.mentalState;
     if (!p.health.injuries) p.health.injuries = [];
     if (!p.health.medications) p.health.medications = [];
     if (!p.health.allergies) p.health.allergies = [];
     if (!p.health.chronicConditions) p.health.chronicConditions = [];
     if (!p.health.history) p.health.history = [];
+    if (!p.health.baselineProfile) p.health.baselineProfile = variedHealth.baselineProfile;
+    if (p.health._baselineVaried !== true) {
+        if (p.health.immunity === 70) p.health.immunity = variedHealth.immunity;
+        if (p.health.stress === 20) p.health.stress = variedHealth.stress;
+        if (p.health.energy === 80) p.health.energy = variedHealth.energy;
+        if (p.health.pain === 0) p.health.pain = variedHealth.pain;
+        if (p.health.mentalState === 'stable') p.health.mentalState = variedHealth.mentalState;
+        p.health._baselineVaried = true;
+    }
     if (!p.mood) p.mood = { current: 'neutral', intensity: 'mild' };
 }
